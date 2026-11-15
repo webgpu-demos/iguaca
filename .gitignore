@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.vite/
+# the original repo, kept beside the project for reference only
+codevember-2026/

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "iguaca",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5212", "--strictPort"],
+      "port": 5212
+    },
+    {
+      "name": "iguaca-dist",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--", "--port", "5213", "--strictPort"],
+      "port": 5213
+    }
+  ]
+}

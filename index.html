@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f3a36" />
+    <title>Iguaca · Amazona vittata</title>
+    <meta name="description" content="The Iguaca, the Puerto Rican parrot, perched in a cloud forest: rigged, alive, every feather real geometry. Offer it a palm fruit." />
+    <meta property="og:title" content="Iguaca · Amazona vittata" />
+    <meta property="og:description" content="The Iguaca, the Puerto Rican parrot, perched in a cloud forest: rigged, alive, every feather real geometry." />
+    <!-- share image: public/share.jpg. Scrapers want an absolute URL: put the site's address in front once it is hosted -->
+    <meta property="og:image" content="./share.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body class="loading">
+    <canvas id="c" class="pending"></canvas>
+    <!-- the title plate. (This page is a remake of day 12, "Feather", of Theo Tillberg's Codevember 2026, MIT licence: see LICENSE.txt beside this page and the README.) -->
+    <div class="plate"><div class="head"><b>Iguaca</b><i>Puerto Rican parrot · <span class="latin">Amazona vittata</span></i><i class="loading-label">Loading <span>…</span></i></div></div>
+    <button class="fs" type="button" aria-label="Full screen, no text"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="in" d="M1.5 5.5v-4h4M10.5 1.5h4v4M14.5 10.5v4h-4M5.5 14.5h-4v-4" /><path class="out" d="M5.5 1.5v4h-4M14.5 5.5h-4v-4M10.5 14.5v-4h4M1.5 10.5h4v4" /></svg></button>
+    <button class="gyro" type="button" aria-label="Tilt the phone to look around" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3.5" width="8" height="17" rx="2" transform="rotate(-18 12 12)" /><path d="M3 8.5a10 10 0 0 0 0 7M21 8.5a10 10 0 0 1 0 7" /></svg></button>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
