@@ -13,7 +13,7 @@ This is a remake of [12 Feather](https://github.com/ttillberg/codevember-2026/tr
 - **Click** anywhere to offer a sierra palm fruit. In reach, the bird takes it and chews.
 - **Move the pointer** and it may look at it. **Drag** to orbit.
 - **Space** startles it. **S** stretches a wing. **R** ruffles. **B** turns it round.
-- The round button, bottom right, has the same actions, plus **Call** and **Forest sound** (off until you ask for it; see Sound below).
+- The round button, bottom right, has the same actions, plus **Call** (with its sound) and **Forest sound** (off until you ask for it; see Sound below).
 - **P** pauses, **D** runs a demo, **W** shows the drawing, **H** the head's wireframe.
 
 Address flags: `?gem` shows the original hummingbird in its own scene, `?settings` shows the workbench card on a built page, `?clean` leaves the scene alone. For looking closely: `?pose=front|profile|back|three`, `?quiet`, `?spread=0..1`, `?jaw=0..1`, `?arousal=0..1`.
@@ -30,7 +30,7 @@ npm run build:pages  # into docs/, which GitHub Pages serves from the main branc
 
 ## Sound
 
-The **Forest sound** action turns sound on. The background is a real recording of coquí frogs at night, and when the bird calls you hear real Puerto Rican parrots (see Credits below). If the background recording is removed, a coquí chorus made in the browser takes its place; with no call recordings the bird calls silently.
+**Call** is always heard: the bird calls with the voice of real Puerto Rican parrots. **Forest sound** turns the background on and off, a real recording of coquí frogs at night, and with it on you also hear the calls the bird makes by itself (see Credits below). If the background recording is removed, a coquí chorus made in the browser takes its place; with no call recordings the bird calls silently.
 
 Recordings sit in `public/audio/` and are named in `public/audio/audio.json`:
 

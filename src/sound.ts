@@ -1,4 +1,6 @@
 // The forest's voice. Off until asked for: a browser only lets sound start from a tap.
+// Two things are asked for apart: "Forest sound" turns the background on and off, and with
+// it the calls the bird makes by itself; a tap on "Call" is always heard, sound on or off.
 //
 // Real recordings, when there are any: public/audio/audio.json lists them,
 //
@@ -14,6 +16,9 @@
 // about once a second, near 1.2 and 2.2 kHz; every frog has its own pitch, its own pace,
 // its own place between the ears and its own distance. With no call recordings, the bird
 // calls silently.
+//
+// The call recordings are small, and fetched ahead (warm()) so the first call is on time
+// with the bill; the forest recording is fetched when the sound is first turned on.
 
 interface Frog {
   /** pitch of this frog relative to the textbook one */
@@ -36,42 +41,72 @@ const SEAM = 2.5;
 /** base: the folder the recordings and audio.json are in, with its trailing slash */
 export function createSound(base: string) {
   let ctx: AudioContext | null = null;
+  /** the background's gain: up with the sound on, down with it off */
   let master: GainNode | null = null;
+  /** the bird's own gain: not the background's, so a call that was asked for is heard with the sound off */
+  let voice: GainNode | null = null;
   /** the made-up chorus's own gain: silent once a real forest is playing */
   let synth: GainNode | null = null;
   let timer = 0;
   let bedTimer = 0;
   let on = false;
-  let loading: Promise<void> | null = null;
+  let list: Promise<Manifest> | null = null;
+  let callBytes: Promise<(ArrayBuffer | null)[]> | null = null;
+  let callsReady: Promise<void> | null = null;
+  let forestReady: Promise<void> | null = null;
   let forest: AudioBuffer | null = null;
+  /** the passes of the forest recording now playing (two, across a seam) */
+  const beds = new Set<AudioBufferSourceNode>();
   const calls: AudioBuffer[] = [];
   let lastCall = -1;
+  /** the call now sounding: the next one cuts it off */
+  let speaking: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
   const frogs: Frog[] = [];
 
-  async function decode(file: string): Promise<AudioBuffer | null> {
-    if (!ctx) return null;
+  /** the list of recordings, read once; no list is an empty one */
+  function manifest(): Promise<Manifest> {
+    return (list ??= fetch(`${base}audio.json`)
+      .then((res): Manifest | Promise<Manifest> => (res.ok ? (res.json() as Promise<Manifest>) : {}))
+      .catch((): Manifest => ({})));
+  }
+
+  async function bytes(file: string): Promise<ArrayBuffer | null> {
     try {
       const res = await fetch(base + file);
-      if (!res.ok) return null;
-      return await ctx.decodeAudioData(await res.arrayBuffer());
+      return res.ok ? await res.arrayBuffer() : null;
     } catch {
-      // not there, or not something this browser can play: go without it
       return null;
     }
   }
 
-  /** read the list and fetch what it names; whatever is missing is simply not used */
-  async function load() {
-    let list: Manifest = {};
+  async function decode(data: ArrayBuffer | null): Promise<AudioBuffer | null> {
+    if (!ctx || !data) return null;
     try {
-      const res = await fetch(`${base}audio.json`);
-      if (res.ok) list = (await res.json()) as Manifest;
+      return await ctx.decodeAudioData(data);
     } catch {
-      /* no list: the made-up chorus, a silent call */
+      // not something this browser can play: go without it
+      return null;
     }
-    const [bed, ...shouts] = await Promise.all([list.forest?.length ? decode(list.forest[0]) : null, ...(list.calls ?? []).map(decode)]);
-    forest = bed;
-    for (const b of shouts) if (b) calls.push(b);
+  }
+
+  /** the calls as files, fetched once: no tap needed, so it can be done ahead */
+  function fetchCalls() {
+    return (callBytes ??= manifest().then((m) => Promise.all((m.calls ?? []).map(bytes))));
+  }
+
+  /** the calls as sound (this needs the context, so a tap first); whatever is missing is simply not used */
+  function loadCalls() {
+    return (callsReady ??= fetchCalls().then(async (files) => {
+      for (const b of await Promise.all(files.map(decode))) if (b) calls.push(b);
+    }));
+  }
+
+  /** the forest recording, and the made-up chorus handed over to it if the sound is still on */
+  function loadForest() {
+    return (forestReady ??= manifest().then(async (m) => {
+      forest = m.forest?.length ? await decode(await bytes(m.forest[0])) : null;
+      if (on) start();
+    }));
   }
 
   function build() {
@@ -81,6 +116,9 @@ export function createSound(base: string) {
     master.connect(ctx.destination);
     synth = ctx.createGain();
     synth.connect(master);
+    voice = ctx.createGain();
+    voice.gain.value = 0.72;
+    voice.connect(ctx.destination);
 
     // wet leaves and far water: filtered noise, very low
     const len = ctx.sampleRate * 3;
@@ -170,6 +208,8 @@ export function createSound(base: string) {
     src.connect(g).connect(master);
     src.start(t);
     src.stop(t + forest.duration + 0.05);
+    beds.add(src);
+    src.onended = () => beds.delete(src);
     bedTimer = window.setTimeout(playBed, (forest.duration - seam) * 1000);
   }
 
@@ -186,6 +226,32 @@ export function createSound(base: string) {
       schedule();
       timer = window.setInterval(schedule, 200);
     }
+  }
+
+  /** one call recording, now */
+  function shout() {
+    if (!ctx || !voice || calls.length === 0) return false;
+    let i = Math.floor(Math.random() * calls.length);
+    if (calls.length > 1 && i === lastCall) i = (i + 1) % calls.length;
+    lastCall = i;
+    const t = ctx.currentTime;
+    if (speaking) {
+      // one voice: a new call cuts the last one short
+      speaking.gain.gain.setTargetAtTime(0, t, 0.015);
+      speaking.src.stop(t + 0.1);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = calls[i];
+    // (no two calls quite alike: a hair faster or slower)
+    src.playbackRate.value = 0.96 + Math.random() * 0.08;
+    const gain = ctx.createGain();
+    src.connect(gain).connect(voice);
+    src.start();
+    const mine = (speaking = { src, gain });
+    src.onended = () => {
+      if (speaking === mine) speaking = null;
+    };
+    return true;
   }
 
   return {
@@ -207,30 +273,42 @@ export function createSound(base: string) {
       master.gain.linearRampToValueAtTime(on ? 0.6 : 0, t + (on ? 1.2 : 0.4));
       window.clearInterval(timer);
       window.clearTimeout(bedTimer);
-      if (!on) return on;
+      if (!on) {
+        // the recording stops once it has faded: turned on again, it starts once, not on top of itself
+        for (const src of beds) src.stop(t + 0.45);
+        beds.clear();
+        return on;
+      }
       void ctx.resume();
       // the made-up chorus at once; the recordings as soon as they are in (the first time, a moment later)
       start();
-      loading ??= load().then(() => {
-        if (on) start();
-      });
+      void loadCalls();
+      void loadForest();
       return on;
     },
-    /** The bird calls: one of the call recordings, never the same one twice running. Silent with the sound off or none to play. */
-    call() {
-      if (!ctx || !master || !on || calls.length === 0) return false;
-      let i = Math.floor(Math.random() * calls.length);
-      if (calls.length > 1 && i === lastCall) i = (i + 1) % calls.length;
-      lastCall = i;
-      const src = ctx.createBufferSource();
-      src.buffer = calls[i];
-      // (no two calls quite alike: a hair faster or slower)
-      src.playbackRate.value = 0.96 + Math.random() * 0.08;
-      const g = ctx.createGain();
-      g.gain.value = 1.2;
-      src.connect(g).connect(master);
-      src.start();
-      return true;
+    /** Fetch the call recordings ahead of the first tap (once the page is up), so the first call is not late. */
+    warm() {
+      void fetchCalls();
+    },
+    /**
+     * The bird calls: one of the call recordings, never the same one twice running.
+     * asked: the visitor asked for this call (from a tap), so it is heard whether the sound
+     * is on or not. A call the bird makes by itself is heard only with the sound on.
+     * Returns whether a recording started now.
+     */
+    call(asked = false) {
+      if (!asked && !on) return false;
+      if (!ctx) build();
+      if (!ctx) return false;
+      void ctx.resume();
+      if (calls.length > 0) return shout();
+      // the first call: the recordings are not sound yet. Heard when they are, if that is
+      // still while the bill is open
+      const at = performance.now();
+      void loadCalls().then(() => {
+        if (performance.now() - at < 700) shout();
+      });
+      return false;
     },
   };
 }

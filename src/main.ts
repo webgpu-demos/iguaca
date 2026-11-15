@@ -96,6 +96,8 @@ function startReveal(instant = false) {
   if (instant) reveal = 1;
   revealing = true;
   document.body.classList.remove('loading');
+  // (the page is up: the parrot's calls can come in now, ahead of the first one)
+  if (!gem) sound.warm();
 }
 const nextFrame = () => new Promise((r) => requestAnimationFrame(r));
 // the picture's first frames shouldn't stall on shaders or uploads: it all happens here, a
@@ -205,6 +207,13 @@ if (!gem) {
 // the forest's voice, off until asked for: recordings from public/audio/ if there are any, else a made-up coquí chorus
 const sound = createSound(`${import.meta.env.BASE_URL}audio/`);
 let wasCalling = false;
+/** A call the visitor asked for: heard with the forest sound on or off (the tap is what lets the sound start). */
+function callNow() {
+  if (!bird.sing(2.2) || gem) return;
+  sound.call(true);
+  // (said: the frame loop does not say it again)
+  wasCalling = true;
+}
 // (for poking, like window.__bird)
 (window as unknown as { __sound: typeof sound }).__sound = sound;
 // it sits a little right of the twig's middle and drifts back there
@@ -664,7 +673,7 @@ const actions = createActionMenu([
   { id: 'food', label: gem ? 'Drop a seed' : 'Offer a fruit', icon: gem ? ICONS.food : ICONS.fruit, run: () => seeds.spawn(seedAhead()) },
   // (gnats are a hummingbird's food; the forest's own sound is the parrot's extra)
   gem ? { id: 'gnat', label: 'Let a bug in', key: 'G', icon: ICONS.gnat, run: letOneIn } : { id: 'sound', label: 'Forest sound', icon: ICONS.sound, run: () => void sound.toggle() },
-  { id: 'sing', label: gem ? 'Sing' : 'Call', icon: ICONS.sing, run: () => bird.sing(2.2) },
+  { id: 'sing', label: gem ? 'Sing' : 'Call', icon: ICONS.sing, run: callNow },
   { id: 'ruffle', label: 'Ruffle', key: 'R', icon: ICONS.ruffle, run: () => bird.ruffle('shake') },
   // (the parrot stays on its perch, and stretches a wing instead)
   gem ? { id: 'fly', label: 'Fly off', key: 'F', icon: ICONS.fly, run: () => bird.flee() } : { id: 'stretch', label: 'Stretch', key: 'S', icon: ICONS.fly, run: () => bird.stretch() },
@@ -808,7 +817,7 @@ renderer.setAnimationLoop((now) => {
   bird.setFood(allFood);
   updateSway(dt);
   bird.update(dt);
-  // the parrot's call is heard as its bill opens (a recording, when the sound is on and there is one)
+  // a call the parrot makes by itself is heard as its bill opens, with the sound on (one asked for: callNow)
   if (!gem && bird.singing && !wasCalling) sound.call();
   wasCalling = bird.singing;
   bird.headPosition(headPos);
