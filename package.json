@@ -2,13 +2,16 @@
   "name": "iguaca",
   "private": true,
   "description": "A rigged Puerto Rican parrot, perched, feather by feather",
+  "homepage": "https://webgpu-demos.github.io/iguaca/",
+  "repository": "github:webgpu-demos/iguaca",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:pages": "vite build --outDir docs --emptyOutDir"
   },
   "dependencies": {
     "three": "^0.187.0"

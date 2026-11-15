@@ -1,0 +1,19 @@
+Recordings in this folder
+
+coquies-hatillo.mp3
+  "Coquíes1" by ValWey: a field recording of coquí frogs singing at night,
+  made in Hatillo, Puerto Rico, 27 May 2012.
+  Source: https://commons.wikimedia.org/wiki/File:Coqu%C3%ADes1.ogg
+  Licence: Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+           https://creativecommons.org/licenses/by-sa/3.0/
+  Changes: converted from Ogg Vorbis to MP3 (128 kbit/s). Nothing else was altered.
+  This MP3 is shared under the same licence.
+
+call-1.mp3 … call-7.mp3
+  Puerto Rican parrots (Amazona vittata) calling in a release cage at Maricao,
+  Puerto Rico, 30 November 2016. From the video "VID-20161130-WA0005" by the
+  U.S. Fish and Wildlife Service, Southeast Region.
+  Source: https://www.flickr.com/photos/usfwssoutheast/31323774122
+  Licence: public domain (Public Domain Mark 1.0; a U.S. government work)
+  Changes: seven phrases cut from the video's sound track, faded at each end,
+           brought up to a common level and converted to MP3.

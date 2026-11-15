@@ -2,6 +2,8 @@
 
 The Iguaca, the Puerto Rican parrot (*Amazona vittata*), perched in a cloud forest. It is rigged and procedurally alive in three.js, and every feather is real geometry. It looks about, cocks its head, blinks, ruffles, calls, stretches a wing, and takes a palm fruit when you offer one.
 
+**Live: https://webgpu-demos.github.io/iguaca/**
+
 ![The Iguaca on its perch](public/share.jpg)
 
 This is a remake of [12 Feather](https://github.com/ttillberg/codevember-2026/tree/main/12) from Theo Tillberg's Codevember 2026 (MIT). The rig, the pose solver, the feather shader and the scene are his; that day's bird was a hummingbird. The species, its anatomy, its behaviour and the setting were changed here.
@@ -22,25 +24,31 @@ Address flags: `?gem` shows the original hummingbird in its own scene, `?setting
 npm install
 npm run dev        # http://localhost:5173
 npm run typecheck
-npm run build      # into dist/, runs from any folder
+npm run build        # into dist/, runs from any folder
+npm run build:pages  # into docs/, which GitHub Pages serves from the main branch
 ```
 
 ## Sound
 
-The **Forest sound** action turns sound on. Out of the box it is a coquí chorus made in the browser, and the bird calls silently.
+The **Forest sound** action turns sound on. The background is a real recording of coquí frogs at night, and when the bird calls you hear real Puerto Rican parrots (see Credits below). If the background recording is removed, a coquí chorus made in the browser takes its place; with no call recordings the bird calls silently.
 
-To use real recordings, put the files in `public/audio/` and name them in `public/audio/audio.json`:
+Recordings sit in `public/audio/` and are named in `public/audio/audio.json`:
 
 ```json
 {
-  "forest": ["el-yunque.mp3"],
+  "forest": ["coquies-hatillo.mp3"],
   "calls": ["call-1.mp3", "call-2.mp3"]
 }
 ```
 
 - `forest`: one background recording, a minute or more. It loops with a cross-fade, so it does not need to be cut to loop.
-- `calls`: short parrot calls. One plays each time the bird calls.
-- mp3 plays in every browser. Check each recording's licence before using it, and keep any credit it asks for in this file.
+- `calls`: short parrot calls. One plays each time the bird calls, never the same one twice running.
+- mp3 plays in every browser. Check each recording's licence before using it, and keep any credit it asks for here and in `public/audio/CREDITS.txt`, which ships with the build.
+
+### Credits
+
+- `coquies-hatillo.mp3`: "[Coquíes1](https://commons.wikimedia.org/wiki/File:Coqu%C3%ADes1.ogg)" by ValWey, a field recording of coquí frogs at night in Hatillo, Puerto Rico (2012), [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Converted from Ogg Vorbis to MP3; shared under the same licence.
+- `call-1.mp3` … `call-7.mp3`: Puerto Rican parrots calling in a release cage at Maricao, Puerto Rico, 30 November 2016, from the video "[VID-20161130-WA0005](https://www.flickr.com/photos/usfwssoutheast/31323774122)" by the U.S. Fish and Wildlife Service, Southeast Region. Public domain. Seven phrases cut from its sound track, faded, levelled and converted to MP3.
 
 ## How it is put together
 
@@ -60,7 +68,8 @@ To use real recordings, put the files in `public/audio/` and name them in `publi
 - The perch is the original mossy twig. A palo colorado limb is not modelled yet.
 - Preening is switched off: it was written for a long bill and is untested with a short one.
 - The bird does not feed from its foot, and it does not fly.
-- The share image is a screenshot at screen size, and its `og:image` address needs the site's own address in front once the page is hosted.
+- The share image is a screenshot at screen size.
+- The forest recording is a night chorus; the scene is daytime.
 
 ## Licence
 
