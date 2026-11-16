@@ -55,7 +55,7 @@ export interface BirdHandle extends Bird {
   // The verbs below return false, and do nothing, while the bird is busy (ruffle aside).
   /** Sing for about this long (starts over if it already is). A parrot calls instead. */
   sing(seconds?: number): boolean;
-  /** A parrot's slow one-sided wing stretch. */
+  /** A parrot's slow wing stretch: both wings raised over the back, or one let down, by turns. */
   stretch(): boolean;
   readonly singing: boolean;
   /** Flick the tongue: `count` flicks, the first reaching `amount` (random when left out). */
@@ -85,6 +85,7 @@ export function createBird(options: BirdOptions = {}): BirdHandle {
 
   const plumageGeo = buildPlumageGeometry(rig);
   const { material: plumageMat, uniforms } = createPlumageMaterial();
+  uniforms.uRestCover.value = species.wing.broad ? 1 : 0;
   const contour = new THREE.SkinnedMesh(plumageGeo.contour, plumageMat);
   contour.name = 'bird.contour';
   const flight = new THREE.SkinnedMesh(plumageGeo.flight, plumageMat);

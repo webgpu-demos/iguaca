@@ -4,7 +4,7 @@ The Iguaca, the Puerto Rican parrot (*Amazona vittata*), perched in a cloud fore
 
 **Live: https://webgpu-demos.github.io/iguaca/**
 
-![The Iguaca on its perch](public/share.jpg)
+![The Iguaca on its perch](public/share.jpg) ![Stretching, both wings up](public/wings.jpg)
 
 This is a remake of [12 Feather](https://github.com/ttillberg/codevember-2026/tree/main/12) from Theo Tillberg's Codevember 2026 (MIT). The rig, the pose solver, the feather shader and the scene are his; that day's bird was a hummingbird. The species, its anatomy, its behaviour and the setting were changed here.
 
@@ -12,7 +12,7 @@ This is a remake of [12 Feather](https://github.com/ttillberg/codevember-2026/tr
 
 - **Click** anywhere to offer a sierra palm fruit. In reach, the bird takes it and chews.
 - **Move the pointer** and it may look at it. **Drag** to orbit.
-- **Space** startles it. **S** stretches a wing. **R** ruffles. **B** turns it round.
+- **Space** startles it. **S** stretches: both wings raised over its back, then, the next time, one wing let down. **R** ruffles. **B** turns it round.
 - The round button, bottom right, has the same actions, plus **Call** (with its sound) and **Forest sound** (off until you ask for it; see Sound below).
 - **P** pauses, **D** runs a demo, **W** shows the drawing, **H** the head's wireframe.
 
@@ -55,12 +55,13 @@ Recordings sit in `public/audio/` and are named in `public/audio/audio.json`:
 - **The bird as data** (`src/bird/species.ts`): `IGUACA` holds the body's cross-sections, the feather tracts and their looks, the wing, tail and legs, and the tempo of its behaviour. `MOUNTAIN_GEM` is the original hummingbird.
 - **Anatomy** (`src/bird/parts.ts`): the hooked bill, the short thick tongue, the two-forward two-back feet, the bare white eye ring, the brown iris and the pupil that pins. The bill hangs from eye level: the head's last cross-section is a slanted plane from the cere back to the chin, the upper mandible is an arch between its ridge and its cutting edge that turns over into the hook, and the lower is a short deep scoop behind it.
 - **Feathers** (`src/bird/plumageGeometry.ts`, `plumageMaterial.ts`): each look can ask for a dark band along the free edge (`edge`) and a closed vane with a clean outline (`closed`). Together they give the scaled look of the head, neck and breast.
+- **Wings and tail** (`wing.broad`, `tail` in `species.ts`): a broad rounded wing. Open, it is green coverts over a blue band, the primaries deep blue on the outer web and blackish inside and at the tip, the secondaries green ending blue; underneath it is an even blue-green. Folded, it is mostly coverts and green secondaries, with the primaries' dark ends beyond them. The tail is twelve separate green feathers ending in a yellow-green band, the outer ones edged blue.
 - **Behaviour** (`src/bird/motion/*`): layers write a pose and a solver turns it into bones. `behaviour.parrot` switches the call, the chewing, the head cocking, the wing stretch, and switches off the hover flight.
 - **Scene** (`src/main.ts`, `src/env/*`, `src/seeds.ts`, `src/sound.ts`): a cloud-forest backdrop with drifting mist, soft overcast light, the palm fruit, and the forest sound.
 
 ## Changed from 12 Feather
 
-- A new species, with the anatomy, feather look, behaviour and scene above.
+- A new species, with the anatomy, feather look, wings, tail, behaviour and scene above.
 - Bugs fixed along the way: tone mapping "None" no longer breaks the grade shader; a held key does not repeat and Space on a focused button only presses the button; the pixel ratio follows browser zoom and a move to another screen; pointer rays follow the phone tilt; the settings card is hidden from visitors unless asked for.
 
 ## Still open

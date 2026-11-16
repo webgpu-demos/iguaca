@@ -246,7 +246,9 @@ function wingShadow(loft: Rig['loft'], s: number, a: number) {
   const along = smoothstep(0.08, 0.3, u) * (1 - smoothstep(0.9, 1.05, u));
   const under = smoothstep(-2.0, -1.05, v) * (1 - smoothstep(-0.75, -0.55, v));
   const behind = smoothstep(1.6, 1.0, v) * (1 - smoothstep(0.7, 0.9, -v + 1.6));
-  return 1 - along * Math.max(0.62 * under, v > 0.8 ? 0.25 * behind : 0);
+  // (how dark: deep under a dark hummingbird's wing, slight beside a bright green one)
+  const depth = loft.species.wing.rest.shade ?? 0.62;
+  return 1 - along * Math.max(depth * under, v > 0.8 ? 0.25 * behind : 0);
 }
 
 /** Pigment value, gold wash and glitter strength at a point of the coat. */
@@ -692,7 +694,8 @@ function addWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
   const X = new THREE.Vector3();
   const Y = new THREE.Vector3();
   const Z = new THREE.Vector3();
-  const blade = (bone: THREE.Bone, length: number, width: number, asym: number, base: THREE.Color) => {
+  const broad = W.broad;
+  const blade = (bone: THREE.Bone, length: number, width: number, asym: number, base: THREE.Color, tipCol: THREE.Color | null = null, dusk = 0) => {
     const r = rig.rest[bone.name];
     new THREE.Matrix4().makeRotationFromQuaternion(r.worldQuat).extractBasis(X, Y, Z);
     // no two blades lie quite alike
@@ -716,13 +719,17 @@ function addWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
       // bone +X is the trailing edge on the left wing and the leading edge on the right
       asym: asym * sg,
       base: base.clone().multiplyScalar(j),
-      tip: base.clone().multiplyScalar(j * 0.8),
+      tip: tipCol ? tipCol.clone().multiplyScalar(j) : base.clone().multiplyScalar(j * 0.8),
       iri: sheen,
       iri2: sheen,
-      iriStrength: 0.22,
+      // (a patterned blade is pigment first: little gloss, or the dark tips wash out)
+      iriStrength: tipCol ? 0.07 : 0.22,
       iriPower: 2.5,
       loose: 0,
       widen: 0.3,
+      // (a patterned remex: dusky inner web, the tip colour a band, blue-green underneath)
+      edge: dusk,
+      closed: tipCol ? 1 : 0,
       bones: [i, 0, 0, 0],
       weights: [1, 0, 0, 0],
       rand: rng(),
@@ -735,14 +742,83 @@ function addWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
       channel: CH_FLIGHT,
     });
   };
+  /** a primary's length: on a broad wing the longest is short of the outermost, so the wingtip is round */
+  const primaryLength = (f: number) => {
+    if (!broad) return lerp(W.primaryLen[0], W.primaryLen[1], Math.pow(f, 0.75));
+    const [peak, outer] = broad.peak;
+    return f <= peak ? lerp(W.primaryLen[0], W.primaryLen[1], Math.pow(f / peak, 0.8)) : W.primaryLen[1] * lerp(1, outer, Math.pow((f - peak) / (1 - peak), 1.6));
+  };
   wr.primaries.forEach((bone, i) => {
     const f = i / (wr.primaries.length - 1);
-    blade(bone, lerp(W.primaryLen[0], W.primaryLen[1], Math.pow(f, 0.75)), W.primaryWidth * lerp(1.15, 0.8, f), lerp(0.2, 0.5, f), col(W.primaryColor ?? W.color));
+    // (a broad wing's outer primaries are the narrow ones: they stand apart at the tip)
+    blade(bone, primaryLength(f), W.primaryWidth * (broad ? lerp(1.05, 0.74, f) : lerp(1.15, 0.8, f)), lerp(0.2, 0.5, f), col(W.primaryColor ?? W.color), broad ? col(broad.primaryTip) : null, broad?.dusk[0] ?? 0);
   });
   wr.secondaries.forEach((bone, j) => {
     const f = j / (wr.secondaries.length - 1);
-    blade(bone, lerp(W.secondaryLen[0], W.secondaryLen[1], f), W.secondaryWidth, 0.15, col(W.secondaryColor ?? W.color));
+    blade(bone, lerp(W.secondaryLen[0], W.secondaryLen[1], f), W.secondaryWidth, 0.15, col(W.secondaryColor ?? W.color), broad ? col(broad.secondaryTip) : null, broad?.dusk[1] ?? 0);
   });
+  if (broad) {
+    // A broad wing's coverts ride the remiges they cover: rows shingled out from the arm
+    // along every remex, green over the arm and the secondaries, the last row over the
+    // primaries blue. Underneath, two rows of pale green hide the quills from below.
+    const green = rig.species.looks.covert;
+    const blue = col(broad.primaryCovert);
+    const pos = new THREE.Vector3();
+    const d = new THREE.Vector3();
+    const n = new THREE.Vector3();
+    const up = new THREE.Vector3();
+    const plant = (bone: THREE.Bone, at: number, len: number, w: number, lift: number, tint: THREE.Color | null, shade: number) => {
+      const r = rig.rest[bone.name];
+      new THREE.Matrix4().makeRotationFromQuaternion(r.worldQuat).extractBasis(X, Y, Z);
+      // (underneath: the feather faces down)
+      up.copy(Y).multiplyScalar(Math.sign(lift));
+      const size = 0.88 + rng() * 0.26;
+      pos.copy(r.worldPos).addScaledVector(Z, at + (rng() - 0.5) * 0.014).addScaledVector(X, (rng() - 0.5) * 0.012).addScaledVector(Y, lift);
+      const tilt = 0.04 + rng() * 0.05;
+      d.copy(Z).applyAxisAngle(Y, (rng() - 0.5) * 0.24);
+      n.copy(up).multiplyScalar(Math.cos(tilt)).addScaledVector(d, -Math.sin(tilt));
+      d.multiplyScalar(Math.cos(tilt)).addScaledVector(up, Math.sin(tilt));
+      const spec = specFromLook(green, rng, shade * (0.85 + 0.3 * rng()));
+      if (tint) {
+        const k = 0.8 + rng() * 0.4;
+        spec.base = tint.clone().multiplyScalar(0.45 * k);
+        spec.tip = tint.clone().multiplyScalar(k);
+      }
+      b.add({
+        ...spec,
+        root: pos,
+        dir: d,
+        normal: n,
+        skinNormal: up,
+        iriNormal: n,
+        width: w * size,
+        length: len * size,
+        cols: 3,
+        rows: 4,
+        curl: 0.03 + rng() * 0.06,
+        asym: 0,
+        bones: [rig.index(bone.name), 0, 0, 0],
+        weights: [1, 0, 0, 0],
+        rand: rng(),
+        coord: sg > 0 ? WING_REAL_L : WING_REAL_R,
+        gain: 0,
+        cover: 0.5,
+      });
+    };
+    const rowsN = broad.coverts.length;
+    const each = (bone: THREE.Bone, primary: boolean) => {
+      broad.coverts.forEach(([at, len, w], row) => {
+        // (two to a remex in the inner rows, so the small ones still close the surface)
+        const count = row < rowsN - 1 ? 2 : 1;
+        for (let k = 0; k < count; k++) plant(bone, at, len, w, 0.016 - row * 0.003, primary && row === rowsN - 1 ? blue : null, 1);
+      });
+      plant(bone, -0.01, 0.1, 0.075, -0.012, null, 1.15);
+      plant(bone, 0.05, 0.13, 0.085, -0.009, null, 1.15);
+    };
+    wr.primaries.forEach((bone) => each(bone, true));
+    wr.secondaries.forEach((bone) => each(bone, false));
+    return;
+  }
 
   // coverts on the arm bones, for the spread wing only: rows shingled over the remex bases
   const look = rig.species.looks.covert;
@@ -846,10 +922,12 @@ function addRestWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
   };
 
   // --- coverts: lesser at the shoulder, growing toward the greater coverts
-  const rows = 7;
+  // (on a broad wing they run more than half way down: most of a folded parrot's wing is coverts)
+  const broad = W.broad;
+  const [rows, covertTo] = broad?.restCoverts ?? [7, 0.3];
   for (let r = 0; r < rows; r++) {
     const f = r / (rows - 1);
-    const u = lerp(0.03, 0.3, f * f * 0.4 + f * 0.6);
+    const u = lerp(0.03, covertTo, f * f * 0.4 + f * 0.6);
     const w = lerp(covW0, covW1, f);
     const len = w * lerp(covA0, covA1, f);
     const half = lerp(W.rest.width[0], W.rest.width[1], smoothstep(0, 0.35, u));
@@ -945,15 +1023,21 @@ function addRestWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
   const tip = new THREE.Vector3();
   const out = new THREE.Vector3();
   const blades: { u: number; v: number; w: number; reach: number; to: THREE.Vector3 | null; len: number; dv: number; asym: number }[] = [];
+  // (a broad wing: the secondaries are a wide green fan that covers the primaries' bases, so
+  // only the primaries' dark ends show beyond it; the mountain-gem's are a short fan on the back)
+  const RS = broad?.restSecondaries ?? { u: [0.2, 0.3], v: [0.82, 0.3], len: [0.19 * bladeK, 0.27 * bladeK], width: 0.066 * bladeK };
+  const RP = broad?.restPrimaries ?? { u: [0.3, 0.42], v: [0.25, -0.8], reach: [0.52, 1], width: [0.068 * bladeK, 0.05 * bladeK] };
   for (let j = 0; j < W.secondaries; j++) {
     const f = j / (W.secondaries - 1);
-    blades.push({ u: lerp(0.2, 0.3, f), v: lerp(0.82, 0.3, f), w: 0.066 * bladeK, reach: 1, to: null, len: lerp(0.19, 0.27, f) * bladeK, dv: -0.3, asym: 0.15 });
+    blades.push({ u: lerp(RS.u[0], RS.u[1], f), v: lerp(RS.v[0], RS.v[1], f), w: RS.width, reach: 1, to: null, len: lerp(RS.len[0], RS.len[1], f), dv: -0.3, asym: 0.15 });
   }
   for (let i = 0; i < W.primaries; i++) {
     const f = i / (W.primaries - 1);
     // the outer primaries are the long ones; they also sit a little further down the strip
-    blades.push({ u: lerp(0.3, 0.42, f), v: lerp(0.25, -0.8, f), w: lerp(0.068, 0.05, f) * bladeK, reach: lerp(0.52, 1, Math.pow(f, 0.8)), to: meet.clone().addScaledVector(tailUp, (1 - f) * 0.05).addScaledVector(tailDir, -(1 - f) * 0.02), len: 0, dv: 0, asym: lerp(0.2, 0.45, f) });
+    blades.push({ u: lerp(RP.u[0], RP.u[1], f), v: lerp(RP.v[0], RP.v[1], f), w: lerp(RP.width[0], RP.width[1], f), reach: lerp(RP.reach[0], RP.reach[1], Math.pow(f, 0.8)), to: meet.clone().addScaledVector(tailUp, (1 - f) * 0.05).addScaledVector(tailDir, -(1 - f) * 0.02), len: 0, dv: 0, asym: lerp(0.2, 0.45, f) });
   }
+  const priTip = broad ? col(broad.primaryTip) : null;
+  const secTip = broad ? col(broad.secondaryTip) : null;
   blades.forEach((bl, k) => {
     const q = at(bl.u, bl.v, sfc);
     const lift = 0.016 - k * 0.0007;
@@ -987,6 +1071,7 @@ function addRestWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
     const j = 0.75 + rng() * 0.5;
     // (the secondaries come first in the list, then the primaries)
     const base = k < W.secondaries ? secCol : priCol;
+    const tipCol = k < W.secondaries ? secTip : priTip;
     b.add({
       root,
       dir,
@@ -1002,13 +1087,16 @@ function addRestWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
       curl,
       asym: bl.asym * sg,
       base: base.clone().multiplyScalar(j),
-      tip: base.clone().multiplyScalar(j * 0.8),
+      tip: tipCol ? tipCol.clone().multiplyScalar(j) : base.clone().multiplyScalar(j * 0.8),
       iri: sheen,
       iri2: sheen,
-      iriStrength: 0.22,
+      // (a patterned blade is pigment first: little gloss, or the dark tips wash out)
+      iriStrength: tipCol ? 0.07 : 0.22,
       iriPower: 2.5,
       loose: 0,
       widen: 0.2,
+      edge: broad ? broad.dusk[k < W.secondaries ? 1 : 0] : 0,
+      closed: tipCol ? 0.5 : 0,
       bones: skinIdx(rig, sk.bones),
       weights: sk.weights,
       rand: rng(),
@@ -1034,6 +1122,8 @@ function addTail(b: Builder, rig: Rig, rng: Rng) {
     new THREE.Matrix4().makeRotationFromQuaternion(rest.worldQuat).extractBasis(X, Y, Z);
     const f = (Math.abs(r.k) - 0.5) / Math.max(T.rectrices - 1, 1);
     const j = 0.85 + rng() * 0.3;
+    // (a parrot's outer rectrices are edged blue)
+    const own = T.outer && f >= T.outer.from ? base.clone().lerp(col(T.outer.color), 0.7) : base;
     b.add({
       root: rest.worldPos,
       dir: Z,
@@ -1048,8 +1138,9 @@ function addTail(b: Builder, rig: Rig, rng: Rng) {
       cup: 0.06,
       curl: 0.01,
       asym: 0.12 * Math.sign(r.k),
-      base: base.clone().multiplyScalar(j),
-      tip: (tipCol ?? base).clone().multiplyScalar(tipCol ? j : j * 0.8),
+      base: own.clone().multiplyScalar(j),
+      tip: (tipCol ?? own).clone().multiplyScalar(tipCol ? j : j * 0.8),
+      closed: T.banded ? 0.5 : 0,
       // the central pair, uppermost on the closed tail, carries a little of the back's green
       iri: f < 0.1 ? centralSheen : sheen,
       iri2: sheen,

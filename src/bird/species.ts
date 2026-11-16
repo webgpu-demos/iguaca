@@ -99,7 +99,7 @@ export interface WingDef {
    * and rump ends, width = half-widths at shoulder / widest point / rump end, height = bulge.
    * cross = where the free primary tips meet over the tail [fraction of tail length, x].
    */
-  rest: { from: [number, number]; to: [number, number]; width: [number, number, number]; height: number; cross: [number, number] };
+  rest: { from: [number, number]; to: [number, number]; width: [number, number, number]; height: number; cross: [number, number]; /** how much the coat just under the wing's leading edge is darkened, 0…1 (default 0.62) */ shade?: number };
   color: number;
   sheen: number;
   /** remex colours where they differ from `color` (a parrot's blue primaries on a green wing) */
@@ -113,6 +113,31 @@ export interface WingDef {
   drape?: number;
   /** folded wing: how broad and long the remex blades lie, as a multiple of the mountain-gem's (default 1) */
   bladeScale?: number;
+  /**
+   * A broad, rounded wing with patterned remiges (a parrot's). Without it the wing is the
+   * mountain-gem's: a pointed blade, the outermost primary the longest, each remex one colour.
+   */
+  broad?: {
+    /** the longest primary, 0 innermost … 1 outermost, and the outermost's length as a share of it */
+    peak: [number, number];
+    /** the spread fan, degrees back from straight out along the arm: innermost → outermost primary, outer → inner secondary */
+    primaryFan: [number, number];
+    secondaryFan: [number, number];
+    /** colour the primaries and the secondaries end in */
+    primaryTip: number;
+    secondaryTip: number;
+    /** how dusky the inner web of a primary and of a secondary is, 0…1 */
+    dusk: [number, number];
+    /** the greater coverts over the primaries */
+    primaryCovert: number;
+    /** spread wing: covert rows lying on each remex, from the arm out: [how far along the remex, length, width] */
+    coverts: [number, number, number][];
+    /** folded wing: how many covert rows, and how far down the strip they run (the mountain-gem: 7 and 0.3) */
+    restCoverts: [number, number];
+    /** folded wing: where the secondaries and the primaries are rooted on the strip, innermost → outermost: u, v and length (primaries aim at the wingtip instead: their third pair is how much of the way they reach) */
+    restSecondaries: { u: [number, number]; v: [number, number]; len: [number, number]; width: number };
+    restPrimaries: { u: [number, number]; v: [number, number]; reach: [number, number]; width: [number, number] };
+  };
 }
 
 export interface TailDef {
@@ -129,6 +154,12 @@ export interface TailDef {
   /** gloss on the blades, and on the central pair that lies uppermost (defaults: the mountain-gem's slate and green) */
   sheen?: number;
   centralSheen?: number;
+  /** the tip colour is a band across the end of each feather, not a blend along it */
+  banded?: boolean;
+  /** how far apart the feathers are rooted across the rump (default 0.006: all but stacked) */
+  rootSpread?: number;
+  /** the outer feathers' own colour (a parrot's outer rectrices are edged blue), from this share of the way out */
+  outer?: { color: number; from: number };
 }
 
 export interface BehaviourDef {
@@ -531,22 +562,43 @@ export const IGUACA: Species = {
     hand: 0.19,
     primaries: 10,
     secondaries: 9,
-    primaryLen: [0.44, 0.7],
-    secondaryLen: [0.42, 0.36],
-    primaryWidth: 0.115,
+    primaryLen: [0.4, 0.62],
+    secondaryLen: [0.43, 0.36],
+    primaryWidth: 0.135,
     secondaryWidth: 0.125,
     // a broad wing folded flat to the side, its tips short of the tail's middle and each on its own side
-    rest: { from: [5.0, 96], to: [1.1, 150], width: [0.07, 0.14, 0.055], height: 0.032, cross: [0.3, 0.06] },
+    rest: { from: [5.0, 96], to: [1.1, 150], width: [0.08, 0.16, 0.06], height: 0.032, cross: [0.3, 0.06], shade: 0.25 },
     color: 0x1f6a2a,
-    sheen: 0x4a9a5a,
-    primaryColor: 0x17337a,
+    sheen: 0x3f8f6a,
+    // deep blue on the outer webs, blackish inside and at the tips; the secondaries green, ending blue
+    primaryColor: 0x16408f,
     secondaryColor: 0x1f6a2a,
-    covertWidth: [0.05, 0.09],
-    covertAspect: [1.35, 1.8],
-    drape: 0,
+    covertWidth: [0.05, 0.1],
+    covertAspect: [1.35, 1.75],
+    // (the breast's side feathers lap over the bend of the wing: without them a dark seam shows there)
+    drape: 0.9,
     bladeScale: 1.45,
+    broad: {
+      peak: [0.68, 0.84],
+      primaryFan: [60, -16],
+      secondaryFan: [68, 100],
+      primaryTip: 0x070b14,
+      secondaryTip: 0x1a4c96,
+      dusk: [0.85, 0.4],
+      primaryCovert: 0x1b4a8a,
+      coverts: [
+        [-0.03, 0.08, 0.06],
+        [0.0, 0.1, 0.066],
+        [0.04, 0.12, 0.074],
+        [0.085, 0.15, 0.084],
+      ],
+      restCoverts: [11, 0.56],
+      restSecondaries: { u: [0.36, 0.52], v: [0.86, -0.1], len: [0.27, 0.34], width: 0.115 },
+      restPrimaries: { u: [0.5, 0.64], v: [0.2, -0.86], reach: [0.62, 1], width: [0.09, 0.07] },
+    },
   },
-  tail: { rectrices: 6, length: [0.5, 0.44], width: 0.16, droop: 66, restFan: 0.6, maxFan: 10, color: 0x2f7a2a, tip: 0x8fbf3e, sheen: 0x5a9a4a, centralSheen: 0x3a8a3a },
+  // a short square tail of separate feathers: green, ending in a yellow-green band, the outer ones edged blue
+  tail: { rectrices: 6, length: [0.4, 0.35], width: 0.105, droop: 66, restFan: 1.5, maxFan: 9, rootSpread: 0.011, color: 0x1f6427, tip: 0x9dbf45, sheen: 0x4a8a4a, centralSheen: 0x3a8a3a, banded: true, outer: { color: 0x1d4f8a, from: 0.7 } },
   legs: { spread: 0.1, hip: [0.1, 0.12, -0.05], toe: 0.095, perchRadius: 0.0405, color: 0xa8926c, toeRadius: 0.013, zygodactyl: true },
   // slower than a hummingbird in everything: breath, glances, blinks
   behaviour: {

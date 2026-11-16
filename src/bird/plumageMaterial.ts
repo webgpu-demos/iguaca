@@ -20,6 +20,8 @@ export interface PlumageUniforms {
   uCrest: { value: number };
   /** per wing [left, right]: 0 folded (the body-surface wing shows) … 1 spread (the real blades show) */
   uWingSpread: { value: THREE.Vector2 };
+  /** 1: the folded wing's coverts stay on the flank when the wing opens (a broad wing leaves a wide gap) */
+  uRestCover: { value: number };
   /** per wing: the resting wing's feathers hinged off the body, radians (a flick, a shuffle) */
   uWingLift: { value: THREE.Vector2 };
   /** the resting wing held off the flank as one piece: [left out, left twist, right out, right twist], radians */
@@ -49,6 +51,7 @@ uniform float uLift[8];
 uniform float uGorget;
 uniform float uCrest;
 uniform vec2 uWingSpread;
+uniform float uRestCover;
 uniform vec2 uWingLift;
 uniform vec4 uWingOut;
 uniform vec3 uWingPivot;
@@ -88,7 +91,8 @@ vec3 transformed = aData.w > 3.5 ? position + normal * max(fAng, -0.1) * 0.05 : 
 if (fRest) {
   vec3 fPivot = vec3(fRight ? -uWingPivot.x : uWingPivot.x, uWingPivot.yz);
   transformed = fPivot + wingSwing(transformed - fPivot, fRight);
-  transformed = mix(transformed, aRoot - normal * 0.03, fUnfold);
+  // (its blades always; its coverts stay as the flank's own cover where the species asks)
+  transformed = mix(transformed, aRoot - normal * 0.03, fUnfold * (aData.w > 2.5 ? 1.0 : 1.0 - uRestCover));
 }
 if (fReal) transformed = mix(aRoot, transformed, fUnfold * fBeat);
 `;
@@ -100,6 +104,7 @@ export function createPlumageMaterial(): { material: THREE.MeshStandardMaterial;
     uGorget: { value: 0 },
     uCrest: { value: 0 },
     uWingSpread: { value: new THREE.Vector2() },
+    uRestCover: { value: 0 },
     uWingLift: { value: new THREE.Vector2() },
     uWingOut: { value: new THREE.Vector4() },
     uWingPivot: { value: new THREE.Vector3() },
@@ -268,7 +273,11 @@ float fFuzz;`,
   fBarb = (ridge * 2.0 - 1.0) * (1.0 - lod);
   fBarbRand = mix(h2, 0.5, lod);
   float shaft = 1.0 - smoothstep(0.0, flight ? 0.07 : 0.09, au);
-  vec3 pig = mix(vBase.rgb, vTip.rgb, flight ? 0.5 : mix(smoothstep(0.3, 1.0, v), 0.62 + 0.3 * v, plush));
+  // (a blade is one colour, half way from base to tip, unless it is banded (vEdge.y on a
+  // blade): then the base colour runs most of its length and the tip colour ends it)
+  float banded = flight ? step(0.25, vEdge.y) : 0.0;
+  // (a remex darkens over its outer third; a rectrix (vEdge.y of 0.5) ends in a narrower band)
+  vec3 pig = mix(vBase.rgb, vTip.rgb, flight ? mix(0.5, smoothstep(vEdge.y > 0.75 ? 0.56 : 0.7, 0.95, v), banded) : mix(smoothstep(0.3, 1.0, v), 0.62 + 0.3 * v, plush));
   // overlap shadow at the root, where the next feather up covers this one
   // (a lifted feather shows more of itself)
   float cover = vIri2.a * (1.0 - clamp(vFData.z * 1.6, 0.0, 0.8));
@@ -277,7 +286,7 @@ float fFuzz;`,
   float edge = scallop ? (v > 0.5 ? length(vec2(u, (v - 0.5) * 2.0)) : au * 0.85) : max(au, (v - 0.55) / 0.45);
   // scales carry a paler fringe on the free edge; soft feathers just vary barb by barb
   // (and a parrot's feather a dusky band there: the scaled look)
-  float rim = scale ? -smoothstep(0.8, 1.0, edge) * 0.45 : -smoothstep(0.8, 0.95, edge) * vEdge.x;
+  float rim = scale ? -smoothstep(0.8, 1.0, edge) * 0.45 : flight ? 0.0 : -smoothstep(0.8, 0.95, edge) * vEdge.x;
   pig *= occ * (1.0 + (flight ? 0.26 : scale ? 0.35 : 0.0) * fBarb) * (1.0 + rim);
   // soft feathers: the strands carry the colour, between them it is nearly dark
   // (plush feathers: hardly darker between the strands, so no row of them casts a line)
@@ -298,6 +307,18 @@ float fFuzz;`,
     // reads as separate feathers. Seen from underneath the other edge is the free one.
     float lead = u * sign(vIri2.a - 0.5) * (gl_FrontFacing ? 1.0 : -1.0);
     float strip = smoothstep(-0.5, 1.0, lead);
+    // a parrot's remex (vEdge.x on a blade): the colour is on the outer web, the one toward
+    // the leading edge; the inner web, which the next feather covers, is dusky
+    // (seen from above: from underneath (vEdge.y of 1, not the tail's 0.5) the whole wing is
+    // a duller, paler blue-green, darker only toward the tips)
+    bool under = !gl_FrontFacing && vEdge.y > 0.75;
+    if (under) {
+      vec3 b0 = vBase.rgb;
+      vec3 teal = vec3(b0.g * 0.45, (b0.g + b0.b) * 0.62, (b0.g + b0.b) * 0.56);
+      pig = mix(teal, teal * 0.3, smoothstep(0.6, 0.98, v));
+    } else {
+      pig *= 1.0 - 0.8 * vEdge.x * smoothstep(0.2, -0.3, u * sign(vIri2.a - 0.5));
+    }
     // each feather its own tone, a touch warmer or cooler than the next
     pig *= mix(vec3(1.12, 0.96, 0.9), vec3(0.9, 0.96, 1.12), rnd);
     pig *= mix(0.42, 1.25, strip * strip);
@@ -309,7 +330,8 @@ float fFuzz;`,
     // paler worn edge
     pig += vBase.rgb * 1.2 * smoothstep(0.8, 0.98, lead) + vBase.rgb * 0.5 * smoothstep(0.88, 1.0, au);
     // the underside of a blade is paler and catches the light from below
-    if (!gl_FrontFacing) pig = pig * 2.0 + vec3(0.006, 0.006, 0.008) * (0.4 + strip);
+    // (a banded blade is opaque pigment: only a little paler below)
+    if (!gl_FrontFacing) pig = pig * mix(2.0, 1.3, banded) + vec3(0.006, 0.006, 0.008) * (0.4 + strip);
     fEdge = (smoothstep(0.8, 0.97, lead) + 0.35 * smoothstep(0.9, 1.0, au)) * (gl_FrontFacing ? 0.3 : 1.0);
   } else {
     pig *= mix(1.0, 0.72, shaft * (scallop ? 0.0 : 0.7 - 0.5 * plush));

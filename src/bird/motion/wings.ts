@@ -12,8 +12,11 @@ export class WingLayer implements Layer {
   private amp = 1;
   // A parrot's stretch: one wing let down and opened slowly behind it, the tail fanned to
   // the same side, held a moment, then folded away. It shows the blue of the primaries.
+  // The other stretch: both wings raised over the back and opened wide, the body leaning
+  // forward under them. It shows the whole wing, flight feathers and all.
   private stretchT0 = -100;
-  private stretchSide: 'L' | 'R' = 'L';
+  private stretchSide: 'L' | 'R' | 'up' = 'L';
+  private stretches = 0;
   private nextStretch: number;
 
   constructor(mind: Mind) {
@@ -25,7 +28,9 @@ export class WingLayer implements Layer {
   /** seconds a stretch takes */
   static readonly STRETCH = 3.2;
 
-  stretch(m: Mind, side: 'L' | 'R' = m.rng() < 0.5 ? 'L' : 'R') {
+  /** One wing let down (L or R) or both raised (up). Left to itself it takes turns: both up, then one down. */
+  stretch(m: Mind, side: 'L' | 'R' | 'up' = this.stretches % 2 === 0 ? 'up' : m.rng() < 0.5 ? 'L' : 'R') {
+    this.stretches++;
     this.stretchT0 = m.t;
     this.stretchSide = side;
     this.nextStretch = m.t + rand(m.rng, 45, 110);
@@ -48,15 +53,27 @@ export class WingLayer implements Layer {
     const s = m.t - this.stretchT0;
     if (s >= 0 && s <= WingLayer.STRETCH) {
       const env = smoothstep(0, 0.9, s) * (1 - smoothstep(WingLayer.STRETCH - 1.0, WingLayer.STRETCH, s));
-      const sg = this.stretchSide === 'L' ? 1 : -1;
-      const w = p.wing[this.stretchSide];
-      w.spread += env * 0.8;
-      w.sweep -= env * 0.5;
-      w.raise -= env * 0.35;
-      p.tailFan += env * 0.6;
-      p.tailYaw += sg * env * 0.25;
-      p.bodyRoll -= sg * env * 0.06;
-      p.addLift(0.5, 0.3, env * 0.08);
+      if (this.stretchSide === 'up') {
+        for (const side of ['L', 'R'] as const) {
+          const w = p.wing[side];
+          w.spread += env;
+          w.raise += env * 1.0;
+          w.sweep -= env * 0.18;
+        }
+        p.bodyPitch += env * 0.14;
+        p.tailFan += env * 0.5;
+        p.addLift(0.5, 0.3, env * 0.06);
+      } else {
+        const sg = this.stretchSide === 'L' ? 1 : -1;
+        const w = p.wing[this.stretchSide];
+        w.spread += env * 0.8;
+        w.sweep -= env * 0.5;
+        w.raise -= env * 0.35;
+        p.tailFan += env * 0.6;
+        p.tailYaw += sg * env * 0.25;
+        p.bodyRoll -= sg * env * 0.06;
+        p.addLift(0.5, 0.3, env * 0.08);
+      }
     } else if (s > WingLayer.STRETCH) this.stretchT0 = -100;
     if (!m.quiet && m.t >= this.nextAt && m.freeze <= 0 && !this.stretching) this.shuffle(m);
     const tau = m.t - this.t0;
