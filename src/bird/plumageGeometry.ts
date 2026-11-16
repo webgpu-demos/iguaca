@@ -758,6 +758,14 @@ function addWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
     blade(bone, lerp(W.secondaryLen[0], W.secondaryLen[1], f), W.secondaryWidth, 0.15, col(W.secondaryColor ?? W.color), broad ? col(broad.secondaryTip) : null, broad?.dusk[1] ?? 0);
   });
   if (broad) {
+    // (tertials: plain green, elbow to body, closing the wing against the flank)
+    wr.tertials.forEach((bone, t) => {
+      const f = wr.tertials.length > 1 ? t / (wr.tertials.length - 1) : 0;
+      const g = col(W.secondaryColor ?? W.color);
+      blade(bone, lerp(broad.tertials.len[0], broad.tertials.len[1], f), W.secondaryWidth * 1.05, 0.1, g, g.clone().multiplyScalar(0.7), broad.dusk[1] * 0.5);
+    });
+  }
+  if (broad) {
     // A broad wing's coverts ride the remiges they cover: rows shingled out from the arm
     // along every remex, green over the arm and the secondaries, the last row over the
     // primaries blue. Underneath, two rows of pale green hide the quills from below.
@@ -817,6 +825,100 @@ function addWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
     };
     wr.primaries.forEach((bone) => each(bone, true));
     wr.secondaries.forEach((bone) => each(bone, false));
+    wr.tertials.forEach((bone) => each(bone, false));
+
+    // The arm itself. The open wing is laid out where it lies open (WingRig.open), then each
+    // feather is carried back to the folded pose on the bone it rides. From the shoulder to
+    // the wrist the leading edge is a straight line, the skin stretched ahead of the bent
+    // elbow; small coverts shingle back from it, row on row, until the remiges' own coverts
+    // take over. They are what makes the wing an arm with a shoulder, not a fan on a pin.
+    const AC = broad.armCoverts;
+    const [armBone, foreBone, handBone] = wr.bones;
+    const openOf = (bone: THREE.Bone) => wr.open[wr.bones.indexOf(bone)];
+    const qd = new THREE.Quaternion();
+    const toRest = (bone: THREE.Bone, at: THREE.Vector3, dir: THREE.Vector3, nrm: THREE.Vector3, upV: THREE.Vector3) => {
+      const o = openOf(bone);
+      const r = rig.rest[bone.name];
+      qd.copy(o.quat).invert().premultiply(r.worldQuat);
+      at.sub(o.pos).applyQuaternion(qd).add(r.worldPos);
+      dir.applyQuaternion(qd);
+      nrm.applyQuaternion(qd);
+      upV.applyQuaternion(qd);
+    };
+    const So = openOf(armBone).pos;
+    const Eo = openOf(foreBone).pos;
+    const Wo = openOf(handBone).pos;
+    const dorsal = new THREE.Vector3(0, 1, 0).applyQuaternion(openOf(armBone).quat);
+    const handDir = new THREE.Vector3(0, 0, 1).applyQuaternion(openOf(handBone).quat);
+    const lat = new THREE.Vector3(sg, 0, 0);
+    const caudal = new THREE.Vector3().crossVectors(dorsal, new THREE.Vector3(1, 0, 0));
+    const le = Wo.clone().sub(So);
+    const span = le.length();
+    le.normalize();
+    // (back from the leading edge, square to it, in the plane of the wing)
+    const chord = caudal.clone().addScaledVector(le, -caudal.dot(le)).normalize();
+    const elbowAlong = Eo.clone().sub(So).dot(le);
+    const elbowDepth = Eo.clone().sub(So).dot(chord);
+    /** how far behind the leading edge the arm's bones lie, `along` it from the shoulder */
+    const armDepth = (along: number) => (along < elbowAlong ? (elbowDepth * along) / elbowAlong : (elbowDepth * (span - along)) / (span - elbowAlong));
+    const cov = (bone: THREE.Bone, at: THREE.Vector3, back: number, len: number, w: number, lift: number, tilt: number, shade: number, wrap: number) => {
+      // back = which way it lies, degrees back from straight out; wrap turns it round the leading edge
+      d.copy(lat).multiplyScalar(Math.cos(back * DEG)).addScaledVector(caudal, Math.sin(back * DEG));
+      up.copy(dorsal).multiplyScalar(Math.sign(lift) * Math.cos(wrap)).addScaledVector(chord, -Math.sin(wrap));
+      pos.copy(at).addScaledVector(dorsal, lift);
+      n.copy(up).multiplyScalar(Math.cos(tilt)).addScaledVector(d, -Math.sin(tilt));
+      d.multiplyScalar(Math.cos(tilt)).addScaledVector(up, Math.sin(tilt));
+      toRest(bone, pos, d, n, up);
+      const size = 0.88 + rng() * 0.26;
+      b.add({
+        ...specFromLook(green, rng, shade * (0.85 + 0.3 * rng())),
+        root: pos,
+        dir: d,
+        normal: n,
+        skinNormal: up,
+        iriNormal: n,
+        width: w * size,
+        length: len * size,
+        cols: 3,
+        rows: 4,
+        curl: 0.03 + rng() * 0.06,
+        asym: 0,
+        bones: [rig.index(bone.name), 0, 0, 0],
+        weights: [1, 0, 0, 0],
+        rand: rng(),
+        coord: sg > 0 ? WING_REAL_L : WING_REAL_R,
+        gain: 0,
+        cover: 0.5,
+      });
+    };
+    const at = new THREE.Vector3();
+    const rowStep = AC.size[0][0] * 0.42;
+    for (const face of [1, -1]) {
+      // shoulder to wrist
+      for (let along = -0.02; along < span + 0.005; along += AC.step) {
+        const depth = armDepth(clamp(along, 0, span));
+        const t = clamp(along / span, 0, 1);
+        // (the inner wing's feathers lie back and in toward the body, the outer ones back and out)
+        const back = lerp(118, 74, t);
+        const bone = along < elbowAlong * 0.92 ? armBone : foreBone;
+        for (let r = 0; r < AC.rows; r++) {
+          const c = r * rowStep - 0.004;
+          // (underneath the lining runs a row further back, over the quills)
+          if (c > depth + (face > 0 ? 0.012 : 0.05)) break;
+          const f = r / Math.max(AC.rows - 1, 1);
+          at.copy(So).addScaledVector(le, along + (rng() - 0.5) * AC.step * 0.5 + (r % 2 ? AC.step / 2 : 0)).addScaledVector(chord, c + (rng() - 0.5) * 0.008);
+          cov(bone, at, back + (rng() - 0.5) * 14, lerp(AC.size[0][0], AC.size[1][0], f), lerp(AC.size[0][1], AC.size[1][1], f), face * (0.021 - r * 0.0022), 0.05 + rng() * 0.05, face > 0 ? 1 : 1.15, r === 0 ? 0.6 : 0);
+        }
+      }
+      // along the hand: the bones' own cover (the primaries' coverts lie behind it)
+      for (let along = AC.step * 0.4; along < W.hand * 0.98; along += AC.step) {
+        const t = along / W.hand;
+        for (let r = 0; r < 2; r++) {
+          at.copy(Wo).addScaledVector(handDir, along + (rng() - 0.5) * 0.01 + (r % 2 ? AC.step / 2 : 0)).addScaledVector(chord, r * rowStep - 0.008);
+          cov(handBone, at, lerp(70, 36, t) + (rng() - 0.5) * 12, AC.size[0][0] * lerp(1.05, 0.8, t), AC.size[0][1] * lerp(1, 0.75, t), face * (0.017 - r * 0.003), 0.05 + rng() * 0.04, face > 0 ? 1 : 1.15, r === 0 ? 0.6 : 0);
+        }
+      }
+    }
     return;
   }
 
@@ -960,10 +1062,15 @@ function addRestWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
 
   // --- a few plain dark feathers along the lower strip, under the blades, so no skin shows
   // beside them near the rump
-  for (let u = 0.42; u < 0.98; u += 0.04) {
-    for (const v0 of [-0.82, -0.3, 0.3, 0.82]) {
+  // (a broad wing opens: there they are the flank's whole cover once the blades have left it,
+  // so they stand closer and are larger)
+  const under = broad ? { step: 0.028, across: [-1.38, -1.08, -0.77, -0.46, -0.15, 0.15, 0.46, 0.77, 1.08, 1.38], len: 0.115, w: 0.078 } : { step: 0.04, across: [-0.82, -0.3, 0.3, 0.82], len: 0.085, w: 0.05 };
+  for (let u = broad ? 0.1 : 0.42; u < 0.98; u += under.step) {
+    for (const v0 of under.across) {
+      // (beside the coverts only the strip's two edges need them)
+      if (u < 0.42 && Math.abs(v0) < 1) continue;
       const size = 0.85 + rng() * 0.3;
-      const skin = lay(u + (rng() - 0.5) * 0.02, v0 + (rng() - 0.5) * 0.2, 0.085 * size, -v0 * 0.1, 0.002, 4);
+      const skin = lay(u + (rng() - 0.5) * 0.02, v0 + (rng() - 0.5) * 0.2, under.len * size, -v0 * 0.1, 0.002, 4);
       b.add({
         ...specFromLook(covert, rng, 0.7 + 0.3 * rng()),
         root,
@@ -971,8 +1078,8 @@ function addRestWing(b: Builder, rig: Rig, side: Side, rng: Rng) {
         normal: nrm,
         skinNormal: sfc.n,
         iriNormal: nrm,
-        width: 0.05 * size,
-        length: 0.085 * size,
+        width: under.w * size,
+        length: under.len * size,
         cols: 3,
         rows: 4,
         curl: 0.04,
@@ -1209,7 +1316,8 @@ function buildFuzz(rig: Rig, layers = 3, rings = 120, segs = 80) {
       // no body fuzz on the folded wings
       {
         const wuv = loft.wingUV(g.s, g.a);
-        if (wuv.u > 0.02 && wuv.u < 0.99) fuzz *= smoothstep(0.85, 1.15, Math.abs(wuv.v));
+        // (a wing that opens leaves the flank bare to view: there the down comes back right at the strip's edge)
+        if (wuv.u > 0.02 && wuv.u < 0.99) fuzz *= smoothstep(0.85, species.wing.broad ? 1.0 : 1.15, Math.abs(wuv.v));
       }
       const sp = specFromLook(look, rng, shade, gold, species.shading.gold, glit);
       iriNormal(iriN, g.n, look);

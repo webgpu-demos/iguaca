@@ -137,6 +137,17 @@ export interface WingDef {
     /** folded wing: where the secondaries and the primaries are rooted on the strip, innermost → outermost: u, v and length (primaries aim at the wingtip instead: their third pair is how much of the way they reach) */
     restSecondaries: { u: [number, number]; v: [number, number]; len: [number, number]; width: number };
     restPrimaries: { u: [number, number]; v: [number, number]; reach: [number, number]; width: [number, number] };
+    /**
+     * The arm. Folded it lies on the strip in a Z: `fold` is where the elbow and the wrist
+     * sit there, wing space [u, v]. `open` is the open arm, degrees back from straight out:
+     * upper arm, forearm, hand (the lengths are upper / fore / hand above).
+     */
+    fold: { elbow: [number, number]; wrist: [number, number] };
+    open: [number, number, number];
+    /** tertials, the blades on the upper arm: how many, where along it (0 elbow … 1 shoulder), their length and fan (degrees back from straight out), elbow → body */
+    tertials: { count: number; at: [number, number]; len: [number, number]; fan: [number, number] };
+    /** small coverts over the arm and the skin ahead of it: rows from the leading edge back, their [length, width] first row → last, and how far apart along the wing they stand */
+    armCoverts: { rows: number; size: [[number, number], [number, number]]; step: number };
   };
 }
 
@@ -544,7 +555,7 @@ export const IGUACA: Species = {
     { name: 'breast', look: 'breast', region: { kind: 'blob', at: [4.9, 0], r: [1.6, 0.5], soft: 0.4 } },
     { name: 'back', look: 'back', region: { kind: 'band', s: [0.9, 5.9], phi: [0.55, 1] } },
     { name: 'scapular', look: 'scapular', region: { kind: 'band', s: [3.7, 5.6], phi: [0.56, 0.84], soft: 0.3 } },
-    { name: 'wingPit', look: 'down', region: { kind: 'blob', at: [3.8, 0.44], r: [0.3, 0.035], soft: 0.5 } },
+    // (no tuft of grey down at the wing pit: on a green parrot it reads as a hole in the coat)
     { name: 'tailCoverts', look: 'covert', region: { kind: 'band', s: [0, 1.15], phi: [0, 1] } },
     { name: 'undertail', look: 'undertail', region: { kind: 'band', s: [0, 1.4], phi: [0, 0.42], soft: 0.3 } },
     { name: 'nape', look: 'nape', region: { kind: 'band', s: [5.7, 7.4], phi: [0, 1], soft: 0.3 } },
@@ -580,7 +591,7 @@ export const IGUACA: Species = {
     bladeScale: 1.45,
     broad: {
       peak: [0.68, 0.84],
-      primaryFan: [60, -16],
+      primaryFan: [58, 2],
       secondaryFan: [68, 100],
       primaryTip: 0x070b14,
       secondaryTip: 0x1a4c96,
@@ -595,6 +606,10 @@ export const IGUACA: Species = {
       restCoverts: [11, 0.56],
       restSecondaries: { u: [0.36, 0.52], v: [0.86, -0.1], len: [0.27, 0.34], width: 0.115 },
       restPrimaries: { u: [0.5, 0.64], v: [0.2, -0.86], reach: [0.62, 1], width: [0.09, 0.07] },
+      fold: { elbow: [0.27, 0.45], wrist: [0.04, -0.6] },
+      open: [38, -26, 8],
+      tertials: { count: 3, at: [0.1, 0.62], len: [0.34, 0.24], fan: [106, 128] },
+      armCoverts: { rows: 5, size: [[0.07, 0.056], [0.11, 0.074]], step: 0.036 },
     },
   },
   // a short square tail of separate feathers: green, ending in a yellow-green band, the outer ones edged blue

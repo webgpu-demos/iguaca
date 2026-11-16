@@ -12,7 +12,8 @@ import { DEG, lerp } from './util';
 // │   │              │                       ├─ lidUpper.L/R, lidLower.L/R, nict.L/R
 // │   │              ├─ sternum (breath)
 // │   │              └─ shoulder.L/R ─ forearm.L/R ─ hand.L/R ─ primary.L/R.1…N
-// │   │                                   └─ secondary.L/R.1…N
+// │   │                   │               └─ secondary.L/R.1…N
+// │   │                   └─ tertial.L/R.1…N (a broad wing)
 // │   └─ tail ─ rectrix.L/R.1…N
 // └─ foot.L/R ─ tarsus.L/R, toe.L/R.1…4
 //
@@ -31,6 +32,19 @@ export interface WingRig {
   spread: THREE.Quaternion[];
   primaries: THREE.Bone[];
   secondaries: THREE.Bone[];
+  /** blades on the upper arm, between the secondaries and the body (a broad wing only) */
+  tertials: THREE.Bone[];
+  /**
+   * Each bone's place in the open wing, root space with the chest at rest: the frame the
+   * open wing's feathers are laid out in (see toRest in plumageGeometry).
+   */
+  open: { pos: THREE.Vector3; quat: THREE.Quaternion }[];
+  /**
+   * When each bone opens as the wing spreads (a broad wing: the upper arm leads, the hand
+   * and its fan come last): spread value where it starts and where it is done, and how much
+   * of its opening a flexed wing takes back. Empty = every bone opens together.
+   */
+  stage: { from: number; to: number; flex: number }[];
 }
 
 export interface RectrixRig {
@@ -195,8 +209,20 @@ export function buildRig(species: Species): Rig {
     const tailUp = new THREE.Vector3(0, Math.cos(ta), -Math.sin(ta));
     const meet = c(sp.tail).addScaledVector(tailDir, species.tail.length[1] * W.rest.cross[0]).addScaledVector(tailUp, 0.03);
     meet.x = W.rest.cross[1];
-    const E = under(0.03, 0.4, 0.02);
-    const wrist = under(0.2, -0.35, 0.014);
+    const B = W.broad;
+    let E: THREE.Vector3;
+    let wrist: THREE.Vector3;
+    if (B) {
+      // A broad wing has a real arm, folded in a Z on the strip: back from the shoulder to the
+      // elbow near the strip's back edge, forward again to the wrist at the bend of the wing
+      // (the strip's front edge, by the shoulder), then the hand back along the front edge.
+      E = S.clone().add(under(B.fold.elbow[0], B.fold.elbow[1], 0.03).sub(S).setLength(W.upper));
+      wrist = E.clone().add(under(B.fold.wrist[0], B.fold.wrist[1], 0.02).sub(E).setLength(W.fore));
+      under(0.3, 0, 0);
+    } else {
+      E = under(0.03, 0.4, 0.02);
+      wrist = under(0.2, -0.35, 0.014);
+    }
     const N = sfc.n.clone();
     const hd = meet.clone().sub(wrist).normalize();
     N.addScaledVector(hd, -N.dot(hd)).normalize();
@@ -209,11 +235,13 @@ export function buildRig(species: Species): Rig {
     const X = new THREE.Vector3(1, 0, 0);
     const rotIn = (dir: THREE.Vector3, n: THREE.Vector3, ang: number) => dir.clone().applyAxisAngle(n, ang);
 
-    interface Spec { name: string; parent: string; pos: THREE.Vector3; dir: THREE.Vector3; n: THREE.Vector3; sDir: THREE.Vector3 }
+    interface Spec { name: string; parent: string; pos: THREE.Vector3; dir: THREE.Vector3; n: THREE.Vector3; sDir: THREE.Vector3; stage?: [number, number, number] }
     const specs: Spec[] = [];
-    specs.push({ name: 'shoulder', parent: 'chest', pos: S, dir: E.clone().sub(S), n: N, sDir: X.clone().multiplyScalar(0.85).addScaledVector(caudal, 0.5) });
-    specs.push({ name: 'forearm', parent: 'shoulder', pos: E, dir: wrist.clone().sub(E), n: N, sDir: X.clone().multiplyScalar(0.9).addScaledVector(caudal, -0.35) });
-    specs.push({ name: 'hand', parent: 'forearm', pos: wrist, dir: hd, n: N, sDir: X.clone() });
+    // (the open arm, degrees back from straight out: the upper arm trails, the forearm leads, so the elbow stays bent)
+    const armDir = (k: number, gem: THREE.Vector3) => (B ? rotIn(X, dorsal, B.open[k] * DEG) : gem);
+    specs.push({ name: 'shoulder', parent: 'chest', pos: S, dir: E.clone().sub(S), n: N, sDir: armDir(0, X.clone().multiplyScalar(0.85).addScaledVector(caudal, 0.5)), stage: [0, 0.7, 0] });
+    specs.push({ name: 'forearm', parent: 'shoulder', pos: E, dir: wrist.clone().sub(E), n: N, sDir: armDir(1, X.clone().multiplyScalar(0.9).addScaledVector(caudal, -0.35)), stage: [0.12, 0.9, 0.5] });
+    specs.push({ name: 'hand', parent: 'forearm', pos: wrist, dir: hd, n: N, sDir: armDir(2, X.clone()), stage: [0.28, 1, 0.45] });
     const np = W.primaries;
     // the spread fan, degrees back from straight out: a broad wing opens wider than a hummingbird's blade
     const pFan = W.broad?.primaryFan ?? [58, -4];
@@ -222,20 +250,33 @@ export function buildRig(species: Species): Rig {
       const f = i / (np - 1);
       const base = wrist.clone().addScaledVector(hd, (W.hand * (i + 0.4)) / np).addScaledVector(trail, (1 - f) * 0.04).addScaledVector(N, (1 - f) * 0.004);
       const dir = meet.clone().addScaledVector(trail, (1 - f) * 0.05).sub(base).normalize();
-      specs.push({ name: `primary#${i + 1}`, parent: 'hand', pos: base, dir, n: N, sDir: rotIn(X, dorsal, lerp(pFan[0], pFan[1], Math.pow(f, W.broad ? 0.85 : 0.62)) * DEG) });
+      specs.push({ name: `primary#${i + 1}`, parent: 'hand', pos: base, dir, n: N, sDir: rotIn(X, dorsal, lerp(pFan[0], pFan[1], Math.pow(f, W.broad ? 0.85 : 0.62)) * DEG), stage: [0.4, 1, 0.35] });
     }
     const ns = W.secondaries;
+    // (the quills sit on the trailing side of the bone they ride. Folded, a broad wing's
+    // forearm points forward, so its trailing side is the belly side of the strip.)
+    const foreTrail = B ? new THREE.Vector3().crossVectors(N, wrist.clone().sub(E)).normalize() : trail;
     for (let j = 0; j < ns; j++) {
       const f = j / (ns - 1);
-      const base = wrist.clone().lerp(E, (j + 0.7) / (ns + 0.4)).addScaledVector(trail, 0.03 + f * 0.015);
-      specs.push({ name: `secondary#${j + 1}`, parent: 'forearm', pos: base, dir: rotIn(hd, N, lerp(7, 16, f) * DEG), n: N, sDir: rotIn(X, dorsal, lerp(sFan[0], sFan[1], f) * DEG) });
+      const base = wrist.clone().lerp(E, (j + 0.7) / (ns + 0.4)).addScaledVector(foreTrail, B ? 0.02 : 0.03 + f * 0.015);
+      specs.push({ name: `secondary#${j + 1}`, parent: 'forearm', pos: base, dir: rotIn(hd, N, lerp(7, 16, f) * DEG), n: N, sDir: rotIn(X, dorsal, lerp(sFan[0], sFan[1], f) * DEG), stage: [0.2, 0.95, 0.25] });
+    }
+    if (B) {
+      // tertials: the innermost blades, on the upper arm from the elbow in toward the body
+      const armTrail = new THREE.Vector3().crossVectors(N, E.clone().sub(S)).normalize();
+      for (let t = 0; t < B.tertials.count; t++) {
+        const f = B.tertials.count > 1 ? t / (B.tertials.count - 1) : 0;
+        const base = E.clone().lerp(S, lerp(B.tertials.at[0], B.tertials.at[1], f)).addScaledVector(armTrail, 0.02);
+        specs.push({ name: `tertial#${t + 1}`, parent: 'shoulder', pos: base, dir: rotIn(hd, N, lerp(16, 22, f) * DEG), n: N, sDir: rotIn(X, dorsal, lerp(B.tertials.fan[0], B.tertials.fan[1], f) * DEG), stage: [0.05, 0.8, 0] });
+      }
     }
 
     for (const side of SIDES) {
       const sg = sideSign(side);
       const nm = (n: string) => (n.includes('#') ? n.replace('#', `.${side}.`) : `${n}.${side}`);
-      const wr: WingRig = { side, bones: [], folded: [], spread: [], primaries: [], secondaries: [] };
+      const wr: WingRig = { side, bones: [], folded: [], spread: [], primaries: [], secondaries: [], tertials: [], open: [], stage: [] };
       const spreadWorld: Record<string, THREE.Quaternion> = { chest: new THREE.Quaternion() };
+      const openPos: Record<string, THREE.Vector3> = { chest: rest.chest.worldPos };
       for (const s of specs) {
         const name = nm(s.name);
         const parent = s.parent === 'chest' ? 'chest' : nm(s.parent);
@@ -243,11 +284,16 @@ export function buildRig(species: Species): Rig {
         const b = add(name, parent, mirror(s.pos, sg), q);
         const qs = basisQuat(mirror(s.sDir, sg), mirror(dorsal, sg));
         spreadWorld[name] = qs;
+        // where the bone sits once its parents have opened
+        openPos[name] = rest[name].pos.clone().applyQuaternion(spreadWorld[parent]).add(openPos[parent]);
         wr.bones.push(b);
         wr.folded.push(rest[name].quat.clone());
         wr.spread.push(spreadWorld[parent].clone().invert().multiply(qs));
+        wr.open.push({ pos: openPos[name], quat: qs });
+        if (B && s.stage) wr.stage.push({ from: s.stage[0], to: s.stage[1], flex: s.stage[2] });
         if (s.name.startsWith('primary')) wr.primaries.push(b);
         if (s.name.startsWith('secondary')) wr.secondaries.push(b);
+        if (s.name.startsWith('tertial')) wr.tertials.push(b);
       }
       wings[side] = wr;
     }

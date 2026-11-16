@@ -20,6 +20,8 @@ export interface WingPose {
   /** spread wing only: swung forward (+) or back (−) about the body's long axis, and raised (+), radians */
   sweep: number;
   raise: number;
+  /** spread wing only, a wing with a real arm: elbow and wrist held part bent, 0 straight … 1 */
+  flex: number;
   /**
    * Folded wing held off the flank (preening under it): out swings the whole resting wing away
    * from the body about the shoulder (the tip leaves the rump), twist turns its leading edge up
@@ -29,7 +31,7 @@ export interface WingPose {
   twist: number;
 }
 
-const REST_WING: WingPose = { spread: 0, lift: 0, droop: 0, sweep: 0, raise: 0, out: 0, twist: 0 };
+const REST_WING: WingPose = { spread: 0, lift: 0, droop: 0, sweep: 0, raise: 0, flex: 0, out: 0, twist: 0 };
 
 export class Pose {
   // gaze: where the bill points, in root space. yaw + = bird's left, pitch + = up.
@@ -399,8 +401,18 @@ export function createSolver(rig: Rig, uniforms: PlumageUniforms): Solver {
     for (const s of SIDES) {
       const w = rig.wings[s];
       const wp = p.wing[s];
-      const k = smoothstep(0, 1, wp.spread);
-      for (let i = 0; i < w.bones.length; i++) w.bones[i].quaternion.copy(w.folded[i]).slerp(w.spread[i], k);
+      let k = smoothstep(0, 1, wp.spread);
+      if (w.stage.length > 0) {
+        // a wing with a real arm opens from the shoulder out: the upper arm swings off the
+        // body first, the forearm follows, the hand and its fan come last
+        const flex = clamp(wp.flex, 0, 1);
+        for (let i = 0; i < w.bones.length; i++) {
+          const st = w.stage[i];
+          w.bones[i].quaternion.copy(w.folded[i]).slerp(w.spread[i], smoothstep(st.from, st.to, wp.spread) * (1 - flex * st.flex));
+        }
+        // (the swing at the shoulder comes with the upper arm, ahead of the rest)
+        k = smoothstep(w.stage[0].from, w.stage[0].to, wp.spread);
+      } else for (let i = 0; i < w.bones.length; i++) w.bones[i].quaternion.copy(w.folded[i]).slerp(w.spread[i], k);
       if (k > 0 && (wp.sweep !== 0 || wp.raise !== 0)) {
         // the stroke: the whole spread wing swung about the shoulder, in the chest's frame
         qA.setFromAxisAngle(Y, -sideSign(s) * wp.sweep * k);
