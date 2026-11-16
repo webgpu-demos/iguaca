@@ -153,8 +153,7 @@ export function createBird(options: BirdOptions = {}): BirdHandle {
     feathers: { contour, flight, fuzz },
     headPosition: (out) => rig.bones.head.getWorldPosition(out),
     onPose: null,
-    // (a parrot stays: its flight is not built)
-    flee: () => (parrot ? false : flee.start()),
+    flee: () => flee.start(),
     preen: (side) => preen.start(mind, side),
     get preening() {
       return preen.active;

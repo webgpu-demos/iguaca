@@ -676,8 +676,9 @@ const actions = createActionMenu([
   gem ? { id: 'gnat', label: 'Let a bug in', key: 'G', icon: ICONS.gnat, run: letOneIn } : { id: 'sound', label: 'Forest sound', icon: ICONS.sound, run: () => void sound.toggle() },
   { id: 'sing', label: gem ? 'Sing' : 'Call', icon: ICONS.sing, run: callNow },
   { id: 'ruffle', label: 'Ruffle', key: 'R', icon: ICONS.ruffle, run: () => bird.ruffle('shake') },
-  // (the parrot stays on its perch, and stretches a wing instead)
-  gem ? { id: 'fly', label: 'Fly off', key: 'F', icon: ICONS.fly, run: () => bird.flee() } : { id: 'stretch', label: 'Stretch', key: 'S', icon: ICONS.fly, run: () => bird.stretch() },
+  // (the parrot also stretches its wings)
+  ...(gem ? [] : [{ id: 'stretch', label: 'Stretch', key: 'S', icon: ICONS.fly, run: () => bird.stretch() }]),
+  { id: 'fly', label: 'Fly off', key: 'F', icon: gem ? ICONS.fly : ICONS.away, run: () => bird.flee() },
   // the other colours are other hummingbirds: the mountain-gem's only
   ...(gem ? [{ id: 'palette', label: 'Color', key: 'C', icon: ICONS.palette, run: changePalette }] : []),
 ], gem ? ICONS.bird : ICONS.parrot);
@@ -686,7 +687,8 @@ actions.root.addEventListener('pointerdown', () => settings.open(false), true);
 
 // --- keys ---------------------------------------------------------------------
 const KEYS: Record<string, () => void> = {
-  ...(gem ? { KeyF: () => bird.flee() } : { KeyS: () => bird.stretch() }),
+  KeyF: () => bird.flee(),
+  ...(gem ? {} : { KeyS: () => bird.stretch() }),
   // a ruffle now (the one-a-minute limit is only for the ones it does by itself)
   KeyR: () => bird.ruffle('shake'),
   KeyB: turnAround,

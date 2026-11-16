@@ -85,6 +85,8 @@ export class Pose {
   feetSlope = 0;
   feetScale = 1;
   grip = 1;
+  /** in the air: the feet drawn up under the belly, 0 hanging where the perch was … 1 tucked away */
+  legTuck = 0;
 
   /** 0 shut … 1 wide open (about 18 degrees) */
   jaw = 0;
@@ -153,6 +155,9 @@ export function createSolver(rig: Rig, uniforms: PlumageUniforms): Solver {
   const qA = new THREE.Quaternion();
   const qB = new THREE.Quaternion();
   const qC = new THREE.Quaternion();
+  const qFoot = new THREE.Quaternion();
+  // where a tucked foot sits, from its hip socket, in the hips' frame
+  const TUCK = new THREE.Vector3(0, -0.045, 0.03);
   const v = new THREE.Vector3();
   const v2 = new THREE.Vector3();
   const pFk = new THREE.Vector3();
@@ -432,18 +437,25 @@ export function createSolver(rig: Rig, uniforms: PlumageUniforms): Solver {
     // --- legs: feet stay planted, the tarsus reaches for the hip ---------
     qA.setFromAxisAngle(Z, p.feetSlope);
     const open = (1 - clamp(p.grip, 0, 1)) * 0.6;
+    const tuck = clamp(p.legTuck, 0, 1);
     for (const { s, foot, footRest, toes, tarsus: b } of legs) {
       // each foot sits on the twig where it is: along its slope, sized to its thickness
       foot.position.copy(footRest.pos).applyQuaternion(qA);
-      foot.quaternion.copy(qA);
+      qFoot.copy(qA);
+      if (tuck > 0) {
+        // drawn up: the foot comes to just under its hip and turns with the body, lost in the belly's coat
+        foot.position.lerp(v.copy(rig.hipSocket[s]).add(TUCK).applyQuaternion(qHips).add(bones.hips.position), tuck);
+        qFoot.slerp(qHips, tuck);
+      }
+      foot.quaternion.copy(qFoot);
       foot.scale.setScalar(p.feetScale);
       // the back toes open the other way: the hallux alone, or toes 1 and 4 on a parrot's foot
       for (let i = 0; i < 4; i++) toes[i].quaternion.setFromAxisAngle(X, i === 3 || (zygo && i === 0) ? open : -open);
       // ankle in root space, then the tarsus reaches for the hip (in the foot's frame)
-      v2.copy(rig.ankle[s]).sub(footRest.worldPos).multiplyScalar(p.feetScale).applyQuaternion(qA).add(foot.position);
+      v2.copy(rig.ankle[s]).sub(footRest.worldPos).multiplyScalar(p.feetScale).applyQuaternion(qFoot).add(foot.position);
       v.copy(rig.hipSocket[s]).applyQuaternion(qHips).add(bones.hips.position).sub(v2);
       const len = v.length();
-      v.applyQuaternion(qB.copy(qA).invert());
+      v.applyQuaternion(qB.copy(qFoot).invert());
       basisQuat(v, X, b.quaternion);
       b.scale.set(1, 1, len / rig.tarsusLength / p.feetScale);
     }
