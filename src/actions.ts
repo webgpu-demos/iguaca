@@ -33,8 +33,9 @@ export const ICONS = {
   ruffle: svg('<path d="M19.5 4.5C13 5 7.5 9.5 6 17l-1.5 2.5"/><path d="M19.5 4.5c-.5 6-4.5 11-12.5 12.5"/><path d="M9.5 13.5l3.5-3.5M8.5 11h3.5M11.5 8.5h3"/>'),
   // fly off: a pair of wings
   fly: svg('<path d="M11 16C9.5 10.5 6.5 6.5 2 5c.3 2.6 1.1 4.4 2.4 5.6-.9.2-1.4.2-2 .1 1.2 2.6 2.9 4 5.3 4.4-.6.4-1.2.6-1.9.7C7.6 16.6 9.1 16.9 11 16z"/><path d="M13 16c1.5-5.5 4.5-9.5 9-11-.3 2.6-1.1 4.4-2.4 5.6.9.2 1.4.2 2 .1-1.2 2.6-2.9 4-5.3 4.4.6.4 1.2.6 1.9.7-1.8.8-3.3 1.1-5.2.2z"/>'),
-  // a bird on the wing, and the way out
-  away: svg('<path d="M2.5 16c2.6-4.2 5.9-4.8 9.5-1 3.6-3.8 6.9-3.2 9.5 1"/><path d="M14.5 4.5H19V9"/><path d="M19 4.5l-5 5"/>'),
+  // fly off: a bird on the wing, seen from the side and climbing away: head and bill to the
+  // right, the near wing thrown up, the far one down under the belly, the tail behind
+  away: svg('<g transform="rotate(-14 12 12)"><path d="M21.6 8.6c-.9-1.5-2.1-2.3-3.6-2.3-1.2 0-2.3.5-3.2 1.4L9.6 2.2c-.9 2.6-.8 5.1.4 7.4l-7.2 2.2 1.5 3c2.7.4 5.2.2 7.5-.6 3.7-1.2 6.4-3.1 7.9-5.4z"/><path d="M12.2 14.6c-.2 2.3-1.3 4.2-3.3 5.6 2.9-.2 5.2-1.6 6.9-4.3"/><circle cx="17.9" cy="8.3" r=".55" fill="currentColor" stroke="none"/></g>'),
   palette: svg('<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.2" r="1.2"/>'),
   settings: svg('<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>'),
 };
