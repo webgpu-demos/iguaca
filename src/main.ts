@@ -25,7 +25,7 @@ const gem = query.has('gem');
 // with the post pass the MSAA lives in the scene target, not the canvas
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !usePost, powerPreference: 'high-performance' });
 // (the pixel ratio is set in resize: it changes with the browser's zoom, from one screen to the next,
-// and with what the graphics card can draw 60 times a second: see pace.ts)
+// and, with "Hold 60 fps" on, with what the graphics card can draw 60 times a second: see pace.ts)
 const pace = createPace({
   cap: () => Math.min(window.devicePixelRatio, phone ? 1.5 : 2),
   floor: phone ? 0.75 : 0.6,
@@ -655,8 +655,11 @@ const settings = createSettings([
   { kind: 'range', key: 'shake', label: 'Handheld', value: 2.05, min: 0, max: 3.5, step: 0.05, set: (v) => (shakeAmt = v) },
   { kind: 'range', key: 'dof', label: 'Depth of field', value: 85, min: 0, max: 260, step: 5, set: (v) => (post.dof.uAperture.value = v) },
   { kind: 'range', key: 'exposure', label: 'Exposure', value: 1.15, min: 0.8, max: 2.4, step: 0.05, set: (v) => (post.grade.uExposure.value = v) },
-  // (off: every pixel the screen has, at whatever pace the graphics card manages)
-  { kind: 'toggle', key: 'smooth', label: 'Hold 60 fps', value: true, set: (v) => pace.hold(v) },
+  // Off unless asked for: every pixel the screen has, at whatever pace the graphics card manages.
+  // On: fewer pixels when it takes that to keep 60 (pace.ts).
+  // (the key was 'smooth' while this was on by default: a new one, so that a default saved along
+  // with some other setting is not taken for a choice)
+  { kind: 'toggle', key: 'hold60', label: 'Hold 60 fps', value: false, set: (v) => pace.hold(v) },
   { kind: 'heading', label: 'Look' },
   // (also the renderer's tone mapping, with or without the post pass)
   { kind: 'select', key: 'tonemap', label: 'Tone mapping', value: 'Neutral', options: Object.keys(TONE), set: (v) => post.setToneMapping(TONE[v]) },

@@ -1,4 +1,4 @@
-// Holding 60 frames a second.
+// Holding 60 frames a second, for those who ask for it ("Hold 60 fps" in the settings).
 //
 // Nearly all of a frame's cost is per pixel (the 4x target, the lens, the felt's shells,
 // the feathers' coverage) and next to none of it is the CPU's, so the one dial is how
@@ -29,7 +29,7 @@ export interface Pace {
   ratio(w: number, h: number): number;
   /** each frame, with its time; `on`: the picture is what is being drawn (not the loading drawing) */
   frame(now: number, on: boolean): void;
-  /** hold 60 by drawing fewer pixels (the default), or always draw them all */
+  /** hold 60 by drawing fewer pixels, or always draw them all (as it starts) */
   hold(on: boolean): void;
   /** frames a second, lately */
   readonly fps: number;
@@ -56,7 +56,9 @@ export function createPace(opts: {
   } catch {
     /* no storage: start with them all */
   }
-  let holding = true;
+  let holding = false;
+  // (no picture sized yet: nothing to size again)
+  let sized = false;
   const cur = { w: 1, h: 1, r: 1 };
   // ms a frame is to take: a sixtieth of a second, or longer once that is all there is to be had
   let goal = SIXTY;
@@ -162,6 +164,7 @@ export function createPace(opts: {
         skip = SETTLE;
         dts.length = long = 0;
       }
+      sized = true;
       cur.w = w;
       cur.h = h;
       cur.r = ratioFor(w, h);
@@ -172,7 +175,10 @@ export function createPace(opts: {
       holding = on;
       descent = trial = null;
       recent.length = 0;
-      if (ratioFor(cur.w, cur.h) !== cur.r) opts.onChange();
+      // (the frames around the switch are no measure: start over, as when the picture comes up)
+      wasOn = false;
+      dts.length = long = 0;
+      if (sized && ratioFor(cur.w, cur.h) !== cur.r) opts.onChange();
     },
     frame(now, on) {
       const dt = last < 0 ? 0 : now - last;
