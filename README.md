@@ -53,7 +53,7 @@ Recordings sit in `public/audio/` and are named in `public/audio/audio.json`:
 ## How it is put together
 
 - **The bird as data** (`src/bird/species.ts`): `IGUACA` holds the body's cross-sections, the feather tracts and their looks, the wing, tail and legs, and the tempo of its behaviour. `MOUNTAIN_GEM` is the original hummingbird.
-- **Anatomy** (`src/bird/parts.ts`): the hooked bill with its cere and nostrils, the short thick tongue, the two-forward two-back feet, the bare white eye ring, the brown iris and the pupil that pins.
+- **Anatomy** (`src/bird/parts.ts`): the hooked bill, the short thick tongue, the two-forward two-back feet, the bare white eye ring, the brown iris and the pupil that pins. The bill hangs from eye level: the head's last cross-section is a slanted plane from the cere back to the chin, the upper mandible is an arch between its ridge and its cutting edge that turns over into the hook, and the lower is a short deep scoop behind it.
 - **Feathers** (`src/bird/plumageGeometry.ts`, `plumageMaterial.ts`): each look can ask for a dark band along the free edge (`edge`) and a closed vane with a clean outline (`closed`). Together they give the scaled look of the head, neck and breast.
 - **Behaviour** (`src/bird/motion/*`): layers write a pose and a solver turns it into bones. `behaviour.parrot` switches the call, the chewing, the head cocking, the wing stretch, and switches off the hover flight.
 - **Scene** (`src/main.ts`, `src/env/*`, `src/seeds.ts`, `src/sound.ts`): a cloud-forest backdrop with drifting mist, soft overcast light, the palm fruit, and the forest sound.

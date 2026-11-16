@@ -99,6 +99,26 @@ function tube(points: THREE.Vector3[], radius: (t: number) => [number, number], 
   return g;
 }
 
+/** A surface through rows of points, every row as long as the first. */
+function sheet(rows: THREE.Vector3[][]) {
+  const pos: number[] = [];
+  const idx: number[] = [];
+  const m = rows[0].length;
+  for (const row of rows) for (const p of row) pos.push(p.x, p.y, p.z);
+  for (let i = 0; i < rows.length - 1; i++) {
+    for (let j = 0; j < m - 1; j++) {
+      const a = i * m + j;
+      const b = a + m;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
 /** Patch of a sphere: alpha sweeps around X (0 = +Z, toward +Y), beta is the latitude toward ±X. */
 function lidShell(r: number, a0: number, a1: number, beta: number, aboutY = false) {
   const na = 12;
@@ -183,8 +203,10 @@ export function buildParts(rig: Rig): Parts {
       const cx = Math.cos(phi);
       const sy = Math.sin(phi);
       // lemon: a superellipse with an exponent under 2, lower still toward the bill
-      const pw = cx * front > 0 ? 1.3 : 1.6;
-      const inner = 1 / Math.pow(Math.pow(Math.abs(cx) / (43 * DEG), pw) + Math.pow(Math.abs(sy) / (29 * DEG), pw), 1 / pw);
+      // (or the species' own opening, a plain oval: a parrot's eye is round and wide open)
+      const [openX, openY] = sp.eye.open ?? [43, 29];
+      const pw = sp.eye.open ? 2 : cx * front > 0 ? 1.3 : 1.6;
+      const inner = 1 / Math.pow(Math.pow(Math.abs(cx) / (openX * DEG), pw) + Math.pow(Math.abs(sy) / (openY * DEG), pw), 1 / pw);
       const outer = 56 * DEG;
       for (let j = 0; j <= RINGS; j++) {
         const t = j / RINGS;
@@ -322,61 +344,96 @@ export function buildParts(rig: Rig): Parts {
     return -B.droop * tt * tt;
   };
   if (B.hook) {
-    // A parrot's bill. The upper mandible is deep at the base and arcs forward and down, on
-    // past the lower one, into a hook; the lower is a short broad scoop under it. They meet
-    // along the same seam as the needle's, which ends where food is held, between the two
-    // tips: so the solver's bill tip, tongue and carry line are the same for both bills.
+    // A parrot's bill, authored in bill space, whose axis points forward and down: the base
+    // of the bill is a slanted plane from the cere at the forehead back to the chin.
+    // The upper mandible is an arch between two curves in the middle plane: the ridge
+    // (culmen), which leaves the forehead and turns over and down into the hook, and the
+    // cutting edge (tomium), which runs along the seam to where the lower mandible ends and
+    // then down the inside of the hook to the same tip. The lower mandible is a short deep
+    // scoop under the seam. The seam ends where food is held (bill.length, bill.droop), so
+    // the solver's bill tip, the tongue and the carry line are the same for both bills.
     const K = B.hook;
-    const hornTip = billCol.clone().multiplyScalar(0.55);
     const cereCol = new THREE.Color(K.cere);
-    const N = 30;
-    const Q0 = -0.3; // the root, inside the head
-    const along = (q0: number, f: (q: number) => THREE.Vector3) => Array.from({ length: N + 1 }, (_, k) => f(lerp(q0, 1, k / N)));
+    const hornTip = billCol.clone().multiplyScalar(0.86);
+    const ROOT = 0.07; // how far the root runs back inside the head
+    const ARCH = 12; // quads across an arch
     /** a blunt end: the section closes over the last stretch */
     const close = (q: number, from: number) => (q > from ? Math.sqrt(Math.max(1 - Math.pow((q - from) / (1 - from), 2) * 0.99, 0)) : 1);
-    // the upper mandible's centre line: level at the base, then a circular arc down to the hook's tip
-    const y0 = K.upper * 0.76;
-    const th1 = 2 * Math.atan((y0 + K.drop) / K.reach);
-    const Rc = K.reach / Math.sin(th1);
-    const upperAt = (q: number) => (q <= 0 ? new THREE.Vector3(0, y0, q * 0.16) : new THREE.Vector3(0, y0 - Rc * (1 - Math.cos(th1 * q)), Rc * Math.sin(th1 * q)));
-    billB.add(
-      tube(along(Q0, upperAt), (t) => {
-        const q = Math.max(lerp(Q0, 1, t), 0);
-        return [B.radius * lerp(1, 0.16, Math.pow(q, 1.5)) * close(q, 0.9), K.upper * lerp(1, 0.22, Math.pow(q, 1.3)) * close(q, 0.9)];
-      }, up, 16),
-      'bill',
-      billCol,
-      null,
-      (p) => {
-        // inside the mouth, under the seam; the cere over the nostrils; horn, darker toward the hook
-        if (p.z < B.length * 0.95 && p.y < seamY(p.z) - 0.004) return mouthCol;
-        if (p.z < 0.024 && p.y > seamY(p.z) + 0.012) return cereCol;
-        return billCol.clone().lerp(hornTip, smoothstep(0.5, 1.05, p.z / K.reach) * smoothstep(-0.01, -K.drop, p.y - y0 * 0.3));
-      },
-    );
-    // nostrils: two small dark pits in the cere
+    // the ridge: a piece of an ellipse, level with the bill's axis at the base, turned through `turn` by the tip
+    const th1 = K.turn * DEG;
+    const eb = (K.top + K.drop) / (1 - Math.cos(th1));
+    const ec = K.top - eb;
+    const culmen = (q: number, out: THREE.Vector3) => (q <= 0 ? out.set(0, K.top, q * ROOT) : out.set(0, ec + eb * Math.cos(th1 * q), K.reach * Math.sin(th1 * q)));
+    const tipP = culmen(1, new THREE.Vector3());
+    const grip = new THREE.Vector3(0, -B.droop, B.length);
+    // (the inside of the hook: on a little from the seam's end, then down to the tip. The
+    // hook is a stout wedge, as thick at its root as the seam's end is short of the ridge)
+    const ctrl = new THREE.Vector3(0, lerp(grip.y, tipP.y, 0.35), grip.z + 0.012);
+    const QG = 0.5; // the seam's share of the cutting edge; the rest is the hook
+    const tomium = (q: number, out: THREE.Vector3) => {
+      if (q <= 0) return out.set(0, 0, q * ROOT);
+      if (q <= QG) {
+        const z = (B.length * q) / QG;
+        return out.set(0, seamY(z), z);
+      }
+      const t = (q - QG) / (1 - QG);
+      const a = (1 - t) * (1 - t);
+      const b = 2 * t * (1 - t);
+      return out.set(0, a * grip.y + b * ctrl.y + t * t * tipP.y, a * grip.z + b * ctrl.z + t * t * tipP.z);
+    };
+    // the cere is a little swollen: a step down onto the horn in front of it
+    const CERE = 0.1;
+    const swell = (q: number) => 1 + 0.06 * (1 - smoothstep(CERE - 0.03, CERE + 0.03, q));
+    const upperWidth = (q: number) => B.radius * lerp(1, 0.2, clamp(q, 0, 1)) * close(q, 0.86) * swell(q);
+    const qs = [-1, -0.5, ...Array.from({ length: 37 }, (_, k) => k / 36)];
+    const C = new THREE.Vector3();
+    const T = new THREE.Vector3();
+    /** the arch over the cutting edge at q: `rise` of the way up to the ridge */
+    const upperRow = (q: number, rise: number) => {
+      culmen(q, C);
+      tomium(q, T);
+      const w = upperWidth(q);
+      const h = rise * (rise === 1 ? swell(q) : 1);
+      return Array.from({ length: ARCH + 1 }, (_, j) => {
+        const f = -Math.PI / 2 + (Math.PI * j) / ARCH;
+        return new THREE.Vector3(w * Math.sin(f), T.y + (C.y - T.y) * h * Math.cos(f), T.z + (C.z - T.z) * h * Math.cos(f));
+      });
+    };
+    // where the cere ends, along the bill's axis (its edge leans a little with the ridge)
+    const cereZ = K.reach * Math.sin(th1 * CERE);
+    billB.add(sheet(qs.map((q) => upperRow(q, 1))), 'bill', billCol, null, (p) => {
+      if (p.z < cereZ && p.y > K.top * 0.3) return cereCol;
+      // horn, a shade darker down the hook
+      return billCol.clone().lerp(hornTip, smoothstep(0, -K.drop, p.y));
+    });
+    // the palate: a shallow hollow under the arch
+    billB.add(sheet(qs.map((q) => upperRow(q, 0.24))), 'bill', mouthCol);
+    // nostrils: two small dark pits high in the cere
     for (const sx of [1, -1]) {
       const pit = new THREE.SphereGeometry(0.0065, 10, 8);
-      pit.translate(sx * B.radius * 0.76, y0 + K.upper * 0.5, 0.012);
+      pit.translate(sx * B.radius * 0.6, K.top * 0.8, cereZ * 0.55);
       billB.add(pit, 'bill', new THREE.Color(0x1f1a17));
     }
-    // the lower mandible: its top edge is the seam, it ends just short of the hook
-    const lowerLen = B.length * 0.98;
-    const lowerDepth = (z: number) => K.lower * lerp(1, 0.45, clamp(z / lowerLen, 0, 1));
-    const lowerAt = (q: number) => {
-      const z = q <= 0 ? q * 0.16 : q * lowerLen;
-      return new THREE.Vector3(0, seamY(z) - lowerDepth(z), z);
+    // the lower mandible: its rim is the seam; deepest under the gape, rising to a blunt end just inside the hook
+    const BACK = 0.055;
+    const lowerLen = B.length * 0.97;
+    // (rounded shut at the back as well, under the chin feathers)
+    const shut = (q: number) => close(q, 0.9) * close(1 - q, 0.86);
+    const lowerDepth = (q: number) => K.lower * (0.75 + 0.25 * Math.sin((Math.min(q / 0.45, 1) * Math.PI) / 2)) * (1 - 0.7 * Math.pow(Math.max((q - 0.45) / 0.55, 0), 1.5)) * shut(q);
+    const lowerWidth = (q: number) => K.lowerWidth * lerp(1, 0.55, smoothstep(0.3, 1, q)) * shut(q);
+    const lowerRow = (q: number, depth: number) => {
+      const z = lerp(-BACK, lowerLen, q);
+      const d = lowerDepth(q) * depth;
+      const w = lowerWidth(q);
+      return Array.from({ length: ARCH + 1 }, (_, j) => {
+        const f = -Math.PI / 2 + (Math.PI * j) / ARCH;
+        return new THREE.Vector3(w * Math.sin(f), seamY(z) - d * Math.cos(f), z);
+      });
     };
-    billB.add(
-      tube(along(Q0, lowerAt), (t) => {
-        const q = Math.max(lerp(Q0, 1, t), 0);
-        return [B.radius * 0.88 * lerp(1, 0.5, q) * close(q, 0.82), lowerDepth(q * lowerLen) * close(q, 0.82)];
-      }, up, 14),
-      'bill',
-      billCol.clone().multiplyScalar(0.9),
-      () => 'jaw',
-      (p) => (p.y > seamY(p.z) - 0.005 ? mouthCol : null),
-    );
+    const ql = Array.from({ length: 29 }, (_, k) => k / 28);
+    billB.add(sheet(ql.map((q) => lowerRow(q, 1))), 'bill', billCol.clone().multiplyScalar(0.93), () => 'jaw');
+    // (the trough the tongue lies in)
+    billB.add(sheet(ql.map((q) => lowerRow(q, 0.3))), 'bill', mouthCol, () => 'jaw');
   } else {
     billB.add(mandible(0.4, 0.58, 1, 1), 'bill', billCol, null, (p) => (p.y < seamY(p.z) + 0.1 * B.radius * taperAt(Math.max(p.z / B.length, 0)) ? mouthCol : null));
     billB.add(mandible(-0.36, 0.5, 0.9, 0.985), 'bill', billCol, () => 'jaw', (p) => (p.y > seamY(p.z) - 0.1 * B.radius * taperAt(Math.max(p.z / B.length, 0)) ? mouthCol : null));

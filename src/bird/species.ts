@@ -175,6 +175,8 @@ export interface Species {
     inset: number;
     /** radius of the unfeathered skin round the eye, in eye radii (default 1.02) */
     bare?: number;
+    /** the opening between the lids, degrees on the eyeball: half its length, half its height. Given, it is a plain oval (default: a 43 by 29 lemon with pointed corners) */
+    open?: [number, number];
     /** a broad ring of bare skin lying on the head round the eye: its colour, and its outer radius in eye radii */
     ring?: { color: number; width: number };
     /** lid colour (default: slate) */
@@ -192,11 +194,14 @@ export interface Species {
     /**
      * A parrot's bill: the upper mandible deep at the base, arcing forward and down past the
      * lower one into a hook. `length` and `droop` then give the end of the seam between the
-     * two, where food is held, not the hook's tip. reach, drop: where the hook's tip is,
-     * forward of the base and below the bill's axis. upper, lower: half-depth of each
-     * mandible at the base. cere: the colour of the bare skin over the nostrils.
+     * two, where food is held, not the hook's tip. All in bill space, whose origin is the
+     * corner of the mouth and whose axis points forward and down. top: the ridge's height
+     * over the axis at the base. reach: how far forward the ridge swells. drop: how far below
+     * the axis the hook's tip ends. turn: degrees the ridge turns through from base to tip.
+     * lower, lowerWidth: depth and half-width of the lower mandible. cere: the colour of the
+     * bare skin over the nostrils.
      */
-    hook?: { reach: number; drop: number; upper: number; lower: number; cere: number };
+    hook?: { top: number; reach: number; drop: number; turn: number; lower: number; lowerWidth: number; cere: number };
     /** how far the lower mandible drops when the jaw is wide open, radians (default 0.31, about 18 degrees) */
     gape?: number;
   };
@@ -417,16 +422,18 @@ export const IGUACA: Species = {
     { y: 0.66, z: 0.0, a: 82, w: 0.245, rd: 0.195, rv: 0.225 }, // 5 shoulders
     { y: 0.78, z: 0.015, a: 78, w: 0.228, rd: 0.2, rv: 0.208 }, // 6 neck
     { y: 0.905, z: 0.06, a: 60, w: 0.205, rd: 0.205, rv: 0.2 }, // 7 head
-    { y: 0.965, z: 0.14, a: 36, w: 0.19, rd: 0.185, rv: 0.18 }, // 8 crown / chin
-    { y: 0.965, z: 0.24, a: 14, w: 0.14, rd: 0.14, rv: 0.125 }, // 9 forehead / face
-    { y: 0.94, z: 0.305, a: 0, w: 0.066, rd: 0.08, rv: 0.064 }, // 10 bill base
+    // (the head turns down to the bill about the chin: these three sections fan out from it,
+    // and the last is a slanted plane, the cere at its top and forward, the chin at its foot)
+    { y: 0.957, z: 0.128, a: 36, w: 0.19, rd: 0.188, rv: 0.182 }, // 8 crown / chin
+    { y: 0.948, z: 0.232, a: 4, w: 0.155, rd: 0.148, rv: 0.132 }, // 9 forehead / face
+    { y: 0.872, z: 0.28, a: -32, w: 0.072, rd: 0.093, rv: 0.055 }, // 10 bill base: its centre is the corner of the mouth
   ],
   throat: [4.5, 7.3],
   spine: { tail: 0.3, hips: 1.9, spine: 3.0, chest: 4.1, neck1: 5.3, neck2: 5.95, head: 6.55 },
   // a brown eye in a broad ring of bare white skin
-  eye: { s: 7.75, phi: 0.53, radius: 0.03, inset: 0.86, bare: 1.6, ring: { color: 0xe6e0d4, width: 1.36 }, lid: 0xbdb6aa, iris: 0x8a4416, pupil: [0.955, 0.987] },
-  // horn-coloured and hooked; length and droop are where the two tips meet
-  bill: { length: 0.115, radius: 0.062, droop: 0.03, color: 0xcdbf9c, hook: { reach: 0.127, drop: 0.066, upper: 0.046, lower: 0.03, cere: 0xb9ad9c }, gape: 0.6 },
+  eye: { s: 8.8, phi: 0.59, radius: 0.03, inset: 0.86, bare: 2.05, open: [52, 47], ring: { color: 0xe6e0d4, width: 1.85 }, lid: 0xbdb6aa, iris: 0x8a4416, pupil: [0.93, 0.985] },
+  // pale horn and deeply hooked, hanging from eye level; length and droop are where food is held, inside the hook
+  bill: { length: 0.054, radius: 0.062, droop: 0.004, color: 0xdccdb0, hook: { top: 0.093, reach: 0.096, drop: 0.078, turn: 105, lower: 0.085, lowerWidth: 0.072, cere: 0xc4b3a6 }, gape: 0.6 },
   skin: 0x141a10,
   headRuff: 0,
   shading: { flank: 0.86, under: 0.82, patch: 0.14, gold: 0x9ab83a, goldAmount: 0.18 },
@@ -511,9 +518,10 @@ export const IGUACA: Species = {
     { name: 'undertail', look: 'undertail', region: { kind: 'band', s: [0, 1.4], phi: [0, 0.42], soft: 0.3 } },
     { name: 'nape', look: 'nape', region: { kind: 'band', s: [5.7, 7.4], phi: [0, 1], soft: 0.3 } },
     { name: 'head', look: 'head', region: { kind: 'band', s: [7.0, 11], phi: [0, 1], soft: 0.2 } },
-    { name: 'cheek', look: 'cheek', region: { kind: 'blob', at: [7.7, 0.3], r: [0.9, 0.2], soft: 0.4 } },
-    { name: 'eye', look: 'lore', region: { kind: 'blob', at: [7.75, 0.53], r: [0.62, 0.1], soft: 0.2 } },
-    { name: 'forecrown', look: 'forecrown', region: { kind: 'band', s: [9.35, 11], phi: [0.5, 1], soft: 0.06 } },
+    { name: 'cheek', look: 'cheek', region: { kind: 'blob', at: [8.2, 0.3], r: [0.9, 0.2], soft: 0.4 } },
+    { name: 'eye', look: 'lore', region: { kind: 'blob', at: [8.8, 0.59], r: [0.62, 0.1], soft: 0.2 } },
+    // (a narrow band: the forehead is the outside of the head's turn, so a little of s is a lot of skin there)
+    { name: 'forecrown', look: 'forecrown', region: { kind: 'band', s: [9.7, 11], phi: [0.62, 1], soft: 0.05 } },
   ],
   wing: {
     shoulder: [0.2, 0.63, -0.06],

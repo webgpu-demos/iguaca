@@ -589,7 +589,8 @@ const seedAhead = () => {
   // a seed somewhere in reach, in front of the head, a little to one side
   camera.getWorldDirection(toCam).negate();
   const side = new THREE.Vector3().crossVectors(toCam, camera.up).normalize();
-  return new THREE.Vector3(bird.root.position.x, 0.95 + Math.random() * 0.2, 0).addScaledVector(toCam, 0.6).addScaledVector(side, (Math.random() - 0.5) * 0.5);
+  // (the parrot's bill hangs under its face and does not reach as far forward as a hummingbird's needle)
+  return new THREE.Vector3(bird.root.position.x, 0.95 + Math.random() * 0.2, 0).addScaledVector(toCam, gem ? 0.6 : 0.48).addScaledVector(side, (Math.random() - 0.5) * (gem ? 0.5 : 0.4));
 };
 // --- D: demo, half a minute of what it does --------------------------------
 // A script on the scene clock (so P pauses it): a ruffle, a gnat that doesn't get
