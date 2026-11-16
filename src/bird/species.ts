@@ -15,6 +15,8 @@ export interface Section {
   /** dorsal and ventral radii */
   rd: number;
   rv: number;
+  /** how square the top half of the section is: 0 an ellipse, 0.06 the default (a little full at the shoulders), more for a broad flat crown */
+  sq?: number;
 }
 
 export interface FeatherLook {
@@ -267,6 +269,8 @@ export interface Species {
     color: number;
     /** toe thickness (default 0.0085) */
     toeRadius?: number;
+    /** claw colour, on a parrot's foot (default: dark horn) */
+    claw?: number;
     /** a parrot's foot: toes 2 and 3 forward, 1 and 4 back (default: three forward, one back) */
     zygodactyl?: boolean;
   };
@@ -453,29 +457,31 @@ const green = { iri: 0x66c044, iriGraze: 0x2f8f72, iriStrength: 0.07, iriPower: 
 export const IGUACA: Species = {
   name: 'Amazona vittata',
   seed: 1493,
-  // stocky and upright, no waist at the neck, a big round head that ends bluntly at a deep bill
+  // stocky and upright: a deep chest, sloping shoulders, and on a short neck a head that is a
+  // ball, no deeper than it is tall (about a quarter of the height from perch to crown)
   //            y      z      a    w      rd     rv
   sections: [
     { y: -0.1, z: -0.3, a: 58, w: 0.06, rd: 0.045, rv: 0.05 }, // 0 vent / tail root
-    { y: 0.02, z: -0.235, a: 58, w: 0.17, rd: 0.12, rv: 0.14 }, // 1 rump
-    { y: 0.15, z: -0.16, a: 61, w: 0.235, rd: 0.165, rv: 0.2 }, // 2 hips
-    { y: 0.32, z: -0.085, a: 66, w: 0.265, rd: 0.19, rv: 0.245 }, // 3 belly
-    { y: 0.5, z: -0.03, a: 74, w: 0.265, rd: 0.195, rv: 0.25 }, // 4 chest
-    { y: 0.66, z: 0.0, a: 82, w: 0.245, rd: 0.195, rv: 0.225 }, // 5 shoulders
-    { y: 0.78, z: 0.015, a: 78, w: 0.228, rd: 0.2, rv: 0.208 }, // 6 neck
-    { y: 0.905, z: 0.06, a: 60, w: 0.205, rd: 0.205, rv: 0.2 }, // 7 head
-    // (the head turns down to the bill about the chin: these three sections fan out from it,
-    // and the last is a slanted plane, the cere at its top and forward, the chin at its foot)
-    { y: 0.957, z: 0.128, a: 36, w: 0.19, rd: 0.188, rv: 0.182 }, // 8 crown / chin
-    { y: 0.948, z: 0.232, a: 4, w: 0.155, rd: 0.148, rv: 0.132 }, // 9 forehead / face
-    { y: 0.872, z: 0.28, a: -32, w: 0.072, rd: 0.093, rv: 0.055 }, // 10 bill base: its centre is the corner of the mouth
+    { y: 0.02, z: -0.235, a: 58, w: 0.17, rd: 0.12, rv: 0.13 }, // 1 rump
+    { y: 0.15, z: -0.165, a: 61, w: 0.235, rd: 0.165, rv: 0.175 }, // 2 hips (the belly clear of the perch: the legs show)
+    { y: 0.32, z: -0.085, a: 66, w: 0.268, rd: 0.195, rv: 0.235 }, // 3 belly
+    { y: 0.5, z: -0.03, a: 74, w: 0.275, rd: 0.2, rv: 0.265 }, // 4 chest
+    { y: 0.66, z: 0.0, a: 82, w: 0.25, rd: 0.195, rv: 0.24 }, // 5 shoulders
+    { y: 0.776, z: 0.013, a: 80, w: 0.172, rd: 0.165, rv: 0.18 }, // 6 neck
+    // (the head's sections fan out from the chin, which is the foot of each: the back of the
+    // head, the crown, the forehead, and last the base of the bill, a plane from the cere at
+    // eye level down to the chin that leans only a little)
+    { y: 0.906, z: 0.074, a: 64, w: 0.156, rd: 0.177, rv: 0.14, sq: 0.12 }, // 7 back of the head
+    { y: 0.962, z: 0.106, a: 39, w: 0.16, rd: 0.184, rv: 0.15, sq: 0.16 }, // 8 crown / chin
+    { y: 0.966, z: 0.168, a: 15, w: 0.108, rd: 0.144, rv: 0.125, sq: 0.16 }, // 9 forehead / face
+    { y: 0.902, z: 0.214, a: -12, w: 0.06, rd: 0.097, rv: 0.058 }, // 10 bill base: its centre is the corner of the mouth
   ],
   throat: [4.5, 7.3],
   spine: { tail: 0.3, hips: 1.9, spine: 3.0, chest: 4.1, neck1: 5.3, neck2: 5.95, head: 6.55 },
   // a brown eye in a broad ring of bare white skin
-  eye: { s: 8.8, phi: 0.59, radius: 0.03, inset: 0.86, bare: 2.05, open: [52, 47], ring: { color: 0xe6e0d4, width: 1.85 }, lid: 0xbdb6aa, iris: 0x8a4416, pupil: [0.93, 0.985] },
+  eye: { s: 8.55, phi: 0.6, radius: 0.025, inset: 0.86, bare: 2.05, open: [52, 47], ring: { color: 0xe6e0d4, width: 1.85 }, lid: 0xbdb6aa, iris: 0x8a4416, pupil: [0.93, 0.985] },
   // pale horn and deeply hooked, hanging from eye level; length and droop are where food is held, inside the hook
-  bill: { length: 0.054, radius: 0.062, droop: 0.004, color: 0xdccdb0, hook: { top: 0.093, reach: 0.096, drop: 0.078, turn: 105, lower: 0.085, lowerWidth: 0.072, cere: 0xc4b3a6 }, gape: 0.6 },
+  bill: { length: 0.054, radius: 0.052, droop: 0.004, color: 0xdccdb0, hook: { top: 0.097, reach: 0.11, drop: 0.036, turn: 105, lower: 0.07, lowerWidth: 0.056, cere: 0xc4b3a6 }, gape: 0.6 },
   skin: 0x141a10,
   headRuff: 0,
   shading: { flank: 0.86, under: 0.82, patch: 0.14, gold: 0x9ab83a, goldAmount: 0.18 },
@@ -561,9 +567,9 @@ export const IGUACA: Species = {
     { name: 'nape', look: 'nape', region: { kind: 'band', s: [5.7, 7.4], phi: [0, 1], soft: 0.3 } },
     { name: 'head', look: 'head', region: { kind: 'band', s: [7.0, 11], phi: [0, 1], soft: 0.2 } },
     { name: 'cheek', look: 'cheek', region: { kind: 'blob', at: [8.2, 0.3], r: [0.9, 0.2], soft: 0.4 } },
-    { name: 'eye', look: 'lore', region: { kind: 'blob', at: [8.8, 0.59], r: [0.62, 0.1], soft: 0.2 } },
+    { name: 'eye', look: 'lore', region: { kind: 'blob', at: [8.55, 0.6], r: [0.62, 0.1], soft: 0.2 } },
     // (a narrow band: the forehead is the outside of the head's turn, so a little of s is a lot of skin there)
-    { name: 'forecrown', look: 'forecrown', region: { kind: 'band', s: [9.7, 11], phi: [0.62, 1], soft: 0.05 } },
+    { name: 'forecrown', look: 'forecrown', region: { kind: 'band', s: [9.68, 11], phi: [0.66, 1], soft: 0.05 } },
   ],
   wing: {
     shoulder: [0.2, 0.63, -0.06],
@@ -613,8 +619,9 @@ export const IGUACA: Species = {
     },
   },
   // a short square tail of separate feathers: green, ending in a yellow-green band, the outer ones edged blue
-  tail: { rectrices: 6, length: [0.4, 0.35], width: 0.105, droop: 66, restFan: 1.5, maxFan: 9, rootSpread: 0.011, color: 0x1f6427, tip: 0x9dbf45, sheen: 0x4a8a4a, centralSheen: 0x3a8a3a, banded: true, outer: { color: 0x1d4f8a, from: 0.7 } },
-  legs: { spread: 0.1, hip: [0.1, 0.12, -0.05], toe: 0.095, perchRadius: 0.0405, color: 0xa8926c, toeRadius: 0.013, zygodactyl: true },
+  tail: { rectrices: 6, length: [0.5, 0.44], width: 0.105, droop: 66, restFan: 1.5, maxFan: 9, rootSpread: 0.011, color: 0x1f6427, tip: 0x9dbf45, sheen: 0x4a8a4a, centralSheen: 0x3a8a3a, banded: true, outer: { color: 0x1d4f8a, from: 0.7 } },
+  // big fleshy feet, a third of a head across the toes, on short legs set well apart
+  legs: { spread: 0.115, hip: [0.11, 0.14, -0.06], toe: 0.16, perchRadius: 0.0405, color: 0x9f725d, toeRadius: 0.0185, claw: 0x35302c, zygodactyl: true },
   // slower than a hummingbird in everything: breath, glances, blinks
   behaviour: {
     breathHz: [0.6, 1.1],

@@ -25,6 +25,7 @@ export class Loft {
   private ws: number[];
   private rds: number[];
   private rvs: number[];
+  private sqs: number[];
   private a = new THREE.Vector3();
   private b = new THREE.Vector3();
   private c = new THREE.Vector3();
@@ -38,6 +39,7 @@ export class Loft {
     this.ws = s.map((k) => k.w);
     this.rds = s.map((k) => k.rd);
     this.rvs = s.map((k) => k.rv);
+    this.sqs = s.map((k) => k.sq ?? 0.06);
   }
 
   get sMax() {
@@ -62,7 +64,8 @@ export class Loft {
     const ca = Math.cos(ang);
     const sa = Math.sin(ang);
     // slightly squared-off cross-section: fuller flanks, like a real bird
-    const k = 1 + 0.06 * Math.sin(ang * 2) ** 2;
+    // (more so over the top half of a section that asks for it: a broad, flat crown)
+    const k = 1 + (ca < 0 ? catmull(this.sqs, s) : 0.06) * Math.sin(ang * 2) ** 2;
     const d = -ca * (ca > 0 ? rv : rd) * k;
     const cy = catmull(this.ys, s);
     const cz = catmull(this.zs, s);

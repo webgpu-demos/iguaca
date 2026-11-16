@@ -262,6 +262,65 @@ export function buildParts(rig: Rig): Parts {
     const len = rig.tarsusLength;
     // toes wrap the perch: theta 0 = top, positive forward
     const rt = sp.legs.toeRadius ?? 0.0085;
+    if (sp.legs.zygodactyl) {
+      // A parrot's foot: a broad fleshy hand that holds the perch between two toes in front
+      // (2 and 3, the outer the longest) and two behind (1 and the long outer 4). Thick
+      // scaly toes, each ending in a dark hooked claw; a short stout leg.
+      const clawCol = new THREE.Color(sp.legs.claw ?? 0x35302c);
+      const span = sp.legs.toe / (Rp + rt);
+      // (the leg: as thick as a toe at the ankle, thickening into the thigh under the belly's coat)
+      skinB.add(
+        tube([0, 0.25, 0.5, 0.75, 1, 1.15].map((t) => new THREE.Vector3(0, 0, t * len)), (t) => [lerp(1.1, 1.9, t) * rt, lerp(1.15, 1.9, t) * rt], up, 10),
+        `tarsus.${side}`,
+        legCol.clone().multiplyScalar(0.94),
+      );
+      // (the pad the toes spring from, on top of the perch)
+      const palm = new THREE.SphereGeometry(1, 14, 10);
+      palm.scale(rt * 1.75, rt * 1.05, rt * 1.5);
+      palm.translate(0.001 * sg, rt * 0.75, -rt * 0.15);
+      skinB.add(palm, `foot.${side}`, legCol);
+      const toe = (i: number, k: number, x0: number, x1: number) => {
+        const th0 = k > 0 ? -0.12 : 0.1;
+        const th1 = k * span;
+        const N = 22;
+        // where the pad ends and the claw begins, and the toe's middle line
+        const PAD = 0.76;
+        const at = (t: number) => {
+          const th = lerp(th0, th1, t);
+          // the claw leaves the pad standing a little off the bark and hooks back in to it
+          const c = Math.max((t - PAD) / (1 - PAD), 0);
+          const rr = Rp + rt * 0.9 + rt * (0.5 * Math.sin(Math.PI * c) * (1 - c) - 0.75 * c * c);
+          // (the toes fan out from the pad, most of it in their first half)
+          const x = lerp(x0, x1, 1 - (1 - t) * (1 - t));
+          return new THREE.Vector3(x * sg, -Rp + rr * Math.cos(th), rr * Math.sin(th));
+        };
+        const axis = new THREE.Vector3(1, 0, 0);
+        // the pad: knuckles, and a blunt end under the claw's root
+        const nPad = Math.round(N * PAD);
+        skinB.add(
+          tube(Array.from({ length: nPad + 1 }, (_, j) => at((j / nPad) * PAD)), (t) => {
+            const knuckle = 1 + 0.09 * Math.cos(t * Math.PI * 2 * 3.5) + 0.04 * Math.sin(t * 61);
+            const end = t > 0.9 ? lerp(1, 0.62, (t - 0.9) / 0.1) : 1;
+            return [rt * knuckle * end, rt * 0.88 * knuckle * end];
+          }, axis, 9),
+          `toe.${side}.${i}`,
+          // every other toe a shade darker
+          legCol.clone().multiplyScalar(1 - (i % 2) * 0.07),
+        );
+        const nClaw = N - nPad + 2;
+        skinB.add(
+          tube(Array.from({ length: nClaw + 1 }, (_, j) => at(lerp(PAD - 0.05, 1, j / nClaw))), (t) => [rt * lerp(0.5, 0.05, Math.pow(t, 1.3)), rt * lerp(0.58, 0.06, Math.pow(t, 1.3))], axis, 7),
+          `toe.${side}.${i}`,
+          clawCol,
+        );
+      };
+      // (inner toes on the body's side of the foot, outer ones away from it)
+      toe(1, -0.7, -1.0 * rt, -2.2 * rt);
+      toe(2, 0.9, -0.95 * rt, -1.9 * rt);
+      toe(3, 1.08, 0.95 * rt, 1.7 * rt);
+      toe(4, -0.98, 1.0 * rt, 2.9 * rt);
+      continue;
+    }
     // (the leg is as stout as the toes are)
     const stout = rt / 0.0085;
     skinB.add(
@@ -292,18 +351,10 @@ export function buildParts(rig: Rig): Parts {
       );
     };
     const fwd = sp.legs.toe / (Rp + rt);
-    if (sp.legs.zygodactyl) {
-      // a parrot's foot: toes 2 and 3 forward (3 the longest), 1 and 4 back (4 the long outer one)
-      toe(1, 0.05, -fwd * 0.72, -0.004 * sg, -0.03 * sg);
-      toe(2, -0.1, fwd * 0.92, -0.004 * sg, -0.022 * sg);
-      toe(3, -0.1, fwd * 1.1, 0.006 * sg, 0.02 * sg);
-      toe(4, 0.05, -fwd * 1.0, 0.006 * sg, 0.034 * sg);
-    } else {
-      toe(1, -0.12, fwd * 0.95, 0, -0.03 * sg);
-      toe(2, -0.12, fwd * 1.1, 0, 0.002 * sg);
-      toe(3, -0.12, fwd * 0.98, 0, 0.034 * sg);
-      toe(4, 0.05, -fwd * 0.8, 0, -0.006 * sg);
-    }
+    toe(1, -0.12, fwd * 0.95, 0, -0.03 * sg);
+    toe(2, -0.12, fwd * 1.1, 0, 0.002 * sg);
+    toe(3, -0.12, fwd * 0.98, 0, 0.034 * sg);
+    toe(4, 0.05, -fwd * 0.8, 0, -0.006 * sg);
   }
   const loftGeo = buildSkinGeometry(rig);
   const skinMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.9, envMapIntensity: 0.4, side: THREE.DoubleSide });

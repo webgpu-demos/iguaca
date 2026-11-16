@@ -331,7 +331,8 @@ export function buildRig(species: Species): Rig {
     const sg = sideSign(side);
     const foot = new THREE.Vector3(L.spread * sg, 0, 0);
     add(`foot.${side}`, 'root', foot);
-    const ank = foot.clone().add(new THREE.Vector3(0, 0.014, -0.012));
+    // (the ankle sits over the back of the foot's pad: higher on a thick-toed foot)
+    const ank = foot.clone().add(L.zygodactyl ? new THREE.Vector3(0, (L.toeRadius ?? 0.0085) * 1.1, -(L.toeRadius ?? 0.0085) * 0.8) : new THREE.Vector3(0, 0.014, -0.012));
     const hipW = new THREE.Vector3(L.hip[0] * sg, L.hip[1], L.hip[2]);
     ankle[side] = ank;
     hipSocket[side] = hipW.clone().sub(rest.hips.worldPos);
