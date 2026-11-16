@@ -32,8 +32,8 @@ function save(v: Record<string, Value>) {
 /**
  * overrides: values that win over the stored ones for this visit (URL flags such as ?still).
  * They are not saved unless the control itself is touched.
- * show: whether the button and the card are on the page at all. The settings are a workbench
- * (dev, or ?settings); without them every control still gets its stored or default value.
+ * show: whether the button and the card are on the page at all (they are, unless a page asks
+ * otherwise); without them every control still gets its stored or default value.
  */
 export function createSettings(items: Setting[], overrides: Record<string, Value> = {}, show = true) {
   const stored = load();

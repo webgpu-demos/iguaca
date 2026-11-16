@@ -657,7 +657,7 @@ const settings = createSettings([
   { kind: 'heading', label: 'Bird' },
   { kind: 'toggle', key: 'follow', label: 'Follows the pointer', value: true, set: (v) => (followPointer = v) },
   { kind: 'range', key: 'mood', label: 'Calm · alert', value: 0.32, min: 0, max: 1, step: 0.01, set: (v) => (bird.mind.baseline = v) },
-  { kind: 'range', key: 'flash', label: 'Gorget flash', value: 1, min: 0, max: 2, step: 0.05, set: (v) => { bird.plumage.uFlash.value = flash0 * v; bird.plumage.uGlint.value = glint0 * v; } },
+  { kind: 'range', key: 'flash', label: gem ? 'Gorget flash' : 'Feather sheen', value: 1, min: 0, max: 2, step: 0.05, set: (v) => { bird.plumage.uFlash.value = flash0 * v; bird.plumage.uGlint.value = glint0 * v; } },
   { kind: 'toggle', key: 'fuzz', label: 'Down and felt', value: true, set: (v) => { fuzzVisible = v; applyFuzz(); } },
   { kind: 'range', key: 'give', label: 'Twig give', value: 1, min: 0, max: 3, step: 0.05, set: (v) => (sway.give = v) },
   { kind: 'heading', label: 'Workbench' },
@@ -666,8 +666,8 @@ const settings = createSettings([
   { kind: 'action', label: 'Drawing', key: 'W', run: () => setDrawing(!drawing) },
   { kind: 'action', label: 'Head wire', key: 'H', run: () => setHeadWire(!headWire) },
   // URL flags win over what was saved: ?still is a camera on a tripod even if Handheld was turned up
-  // the card is a workbench: there in dev and with ?settings, the saved or default values apply either way
-], query.has('still') ? { shake: 0 } : {}, import.meta.env.DEV || query.has('settings'));
+  // (the card is on the page for every visitor: its button sits top right, by full screen)
+], query.has('still') ? { shake: 0 } : {});
 
 // --- the action menu: one round button, bottom right (the settings beside it) ---
 const actions = createActionMenu([

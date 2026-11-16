@@ -13,10 +13,11 @@ This is a remake of [12 Feather](https://github.com/ttillberg/codevember-2026/tr
 - **Click** anywhere to offer a sierra palm fruit. In reach, the bird takes it and chews.
 - **Move the pointer** and it may look at it. **Drag** to orbit.
 - **Space** startles it. **S** stretches: it leans forward, lifts both wings off its back from the shoulders, opens them upward and folds them away; the next time, one wing let down. **F** sends it off: it jumps with its wings thrown up, rows away with deep beats, and a few seconds later flies back in and lands (it also goes by itself every minute or two). **R** ruffles. **B** turns it round.
+- The sliders button, top right, opens the settings: camera shake, depth of field, exposure, tone mapping, contrast, saturation, the bird's mood and sheen, and how much the twig gives. They are remembered on your device.
 - The round button, bottom right, has the same actions, plus **Call** (with its sound) and **Forest sound** (off until you ask for it; see Sound below).
 - **P** pauses, **D** runs a demo, **W** shows the drawing, **H** the head's wireframe.
 
-Address flags: `?gem` shows the original hummingbird in its own scene, `?settings` shows the workbench card on a built page, `?clean` leaves the scene alone. For looking closely: `?pose=front|profile|back|three`, `?quiet`, `?spread=0..1`, `?jaw=0..1`, `?arousal=0..1`.
+Address flags: `?gem` shows the original hummingbird in its own scene, `?clean` leaves the scene alone. For looking closely: `?pose=front|profile|back|three`, `?quiet`, `?spread=0..1`, `?jaw=0..1`, `?arousal=0..1`.
 
 ## Run
 
@@ -62,7 +63,7 @@ Recordings sit in `public/audio/` and are named in `public/audio/audio.json`:
 ## Changed from 12 Feather
 
 - A new species, with the anatomy, feather look, wings, tail, behaviour and scene above.
-- Bugs fixed along the way: tone mapping "None" no longer breaks the grade shader; a held key does not repeat and Space on a focused button only presses the button; the pixel ratio follows browser zoom and a move to another screen; pointer rays follow the phone tilt; the settings card is hidden from visitors unless asked for.
+- Bugs fixed along the way: tone mapping "None" no longer breaks the grade shader; a held key does not repeat and Space on a focused button only presses the button; the pixel ratio follows browser zoom and a move to another screen; pointer rays follow the phone tilt.
 
 ## Still open
 
