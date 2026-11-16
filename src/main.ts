@@ -11,6 +11,7 @@ import { createSeeds } from './seeds';
 import { createInsects } from './insects';
 import { createAmbient } from './ambient';
 import { createActionMenu, ICONS } from './actions';
+import { createPace } from './pace';
 import { createSettings } from './settings';
 import { createSound } from './sound';
 import { damp } from './bird/util';
@@ -23,9 +24,13 @@ const usePost = !query.has('nopost');
 const gem = query.has('gem');
 // with the post pass the MSAA lives in the scene target, not the canvas
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !usePost, powerPreference: 'high-performance' });
-// (the pixel ratio is set in resize: it changes with the browser's zoom and from one screen to the next)
-const pixelRatio = () => Math.min(window.devicePixelRatio, phone ? 1.5 : 2);
-renderer.setPixelRatio(pixelRatio());
+// (the pixel ratio is set in resize: it changes with the browser's zoom, from one screen to the next,
+// and with what the graphics card can draw 60 times a second: see pace.ts)
+const pace = createPace({
+  cap: () => Math.min(window.devicePixelRatio, phone ? 1.5 : 2),
+  floor: phone ? 0.75 : 0.6,
+  onChange: () => resize(),
+});
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
@@ -124,6 +129,7 @@ async function ready() {
     }
     // and one picture, unseen: the shadow pass only meets the feathers here (the drawing hides them)
     await nextFrame();
+    backdrop.draw(renderer, camera);
     if (usePost) post.prerender(scene, camera);
   } catch {
     /* compile on first draw then */
@@ -649,6 +655,8 @@ const settings = createSettings([
   { kind: 'range', key: 'shake', label: 'Handheld', value: 2.05, min: 0, max: 3.5, step: 0.05, set: (v) => (shakeAmt = v) },
   { kind: 'range', key: 'dof', label: 'Depth of field', value: 85, min: 0, max: 260, step: 5, set: (v) => (post.dof.uAperture.value = v) },
   { kind: 'range', key: 'exposure', label: 'Exposure', value: 1.15, min: 0.8, max: 2.4, step: 0.05, set: (v) => (post.grade.uExposure.value = v) },
+  // (off: every pixel the screen has, at whatever pace the graphics card manages)
+  { kind: 'toggle', key: 'smooth', label: 'Hold 60 fps', value: true, set: (v) => pace.hold(v) },
   { kind: 'heading', label: 'Look' },
   // (also the renderer's tone mapping, with or without the post pass)
   { kind: 'select', key: 'tonemap', label: 'Tone mapping', value: 'Neutral', options: Object.keys(TONE), set: (v) => post.setToneMapping(TONE[v]) },
@@ -720,7 +728,7 @@ function resize() {
   // the size the canvas is laid out at, not the window's: on a phone they differ while the bars show
   const w = canvas.clientWidth || window.innerWidth;
   const h = canvas.clientHeight || window.innerHeight;
-  renderer.setPixelRatio(pixelRatio());
+  renderer.setPixelRatio(pace.ratio(w, h));
   renderer.setSize(w, h, false);
   post.setSize(w, h, renderer.getPixelRatio());
   camera.aspect = w / h;
@@ -754,6 +762,16 @@ function updateLift(dt: number) {
   } else if (camera.view?.enabled) camera.clearViewOffset();
 }
 
+// ?fps: frames a second, and the pixel ratio the picture is drawn at to hold them
+const readout = query.has('fps') ? document.body.appendChild(document.createElement('div')) : null;
+if (readout) readout.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:9;padding:4px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font:12px/1.4 ui-monospace,Menlo,monospace;pointer-events:none';
+let readoutAt = 0;
+function updateReadout(now: number) {
+  if (!readout || now < readoutAt) return;
+  readoutAt = now + 500;
+  readout.textContent = `${pace.fps.toFixed(0)} fps · ×${renderer.getPixelRatio().toFixed(2)}`;
+}
+
 branchLoad.then(() => requestAnimationFrame(() => ready()));
 if (!usePost) startReveal(true);
 let paused = false;
@@ -766,6 +784,8 @@ timer.connect(document);
 let t = 0;
 renderer.setAnimationLoop((now) => {
   timer.update(now);
+  // (only the picture is paced: the loading drawing costs next to nothing)
+  pace.frame(now, revealing && reveal === 1 && !drawing);
   // P: time stands still (the bird, the seeds, the camera's hands); the view can still be turned
   const dt = paused ? 0 : Math.min(timer.getDelta(), 1 / 20);
   if (paused) timer.getDelta();
@@ -831,6 +851,7 @@ renderer.setAnimationLoop((now) => {
   ambient.update(dt);
   updateDemo(dt);
   frame();
+  updateReadout(now);
 });
 
 // handheld long lens: a slow sway, a fine tremor, now and then a small bump.
@@ -947,9 +968,14 @@ function render() {
     firstFrame = false;
     canvas.classList.remove('pending');
   }
-  if (!usePost) return renderer.render(scene, camera);
+  if (!usePost) {
+    backdrop.draw(renderer, camera);
+    return renderer.render(scene, camera);
+  }
   post.focusOn(focusAt);
   post.grade.uReveal.value = THREE.MathUtils.smoothstep(reveal, 0, 1);
+  // (nothing of the picture shows yet: no forest behind it either)
+  if (post.grade.uReveal.value > 0) backdrop.draw(renderer, camera);
   post.render(scene, camera, t, revealing && reveal === 1 ? null : drawWire);
   if (edgeDue && reveal === 1 && !drawing) sampleEdge();
 }
@@ -1013,4 +1039,4 @@ window.addEventListener('resize', () => {
   edgeTimer = window.setTimeout(() => (edgeDue = true), 400);
 });
 
-Object.assign(window as unknown as Record<string, unknown>, { __scene: scene, __camera: camera, __renderer: renderer, __controls: controls, __post: post, __frame: frame, __seeds: seeds, __insects: insects, __ambient: ambient, __sway: sway });
+Object.assign(window as unknown as Record<string, unknown>, { __scene: scene, __camera: camera, __renderer: renderer, __pace: pace, __controls: controls, __post: post, __frame: frame, __seeds: seeds, __insects: insects, __ambient: ambient, __sway: sway });

@@ -57,6 +57,8 @@ void main() {
 // Biggest CoC in each tile, then over the tile and its 8 neighbours: what could
 // blur over a pixel, a blurry foreground next to a sharp one included.
 // A tile is no smaller than the gather's reach (TILE below).
+// With it, the brightest and the darkest there: where they are close (open forest
+// behind, a run of mist) the gather needs few taps to say what all of them would.
 const tileFrag = /* glsl */ `
 precision highp float;
 uniform sampler2D tPack;
@@ -68,14 +70,21 @@ void main() {
   ivec2 base = ivec2(gl_FragCoord.xy) * uTile;
   // the CoC grows with |1/focus - 1/z|: the tile's two ends of 1/z are enough
   float lo = 1e9, hi = -1e9;
+  float dark = 64.0, bright = 0.0;
   for (int y = 0; y < uTile; y++) {
     for (int x = 0; x < uTile; x++) {
-      float invZ = texelFetch(tPack, min(base + ivec2(x, y), last), 0).a;
-      lo = min(lo, invZ);
-      hi = max(hi, invZ);
+      vec4 p = texelFetch(tPack, min(base + ivec2(x, y), last), 0);
+      lo = min(lo, p.a);
+      hi = max(hi, p.a);
+      float l = dot(p.rgb, vec3(0.333));
+      // (a NaN pixel is dropped by the gather: it says nothing here either)
+      if (l >= 0.0 && l < 64.0) {
+        dark = min(dark, l);
+        bright = max(bright, l);
+      }
     }
   }
-  gl_FragColor = vec4(max(lensCoc(lo, uFocus, uAperture, uMaxCoc), lensCoc(hi, uFocus, uAperture, uMaxCoc)));
+  gl_FragColor = vec4(max(lensCoc(lo, uFocus, uAperture, uMaxCoc), lensCoc(hi, uFocus, uAperture, uMaxCoc)), bright, min(dark, bright), 0.0);
 }
 `;
 const dilateFrag = /* glsl */ `
@@ -84,11 +93,14 @@ uniform sampler2D tTile;
 void main() {
   ivec2 last = textureSize(tTile, 0) - 1;
   ivec2 p = ivec2(gl_FragCoord.xy);
-  float m = 0.0;
+  vec3 m = vec3(0.0, 0.0, 64.0);
   for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) m = max(m, texelFetch(tTile, clamp(p + ivec2(x, y), ivec2(0), last), 0).r);
+    for (int x = -1; x <= 1; x++) {
+      vec3 t = texelFetch(tTile, clamp(p + ivec2(x, y), ivec2(0), last), 0).rgb;
+      m = vec3(max(m.rg, t.rg), min(m.b, t.b));
+    }
   }
-  gl_FragColor = vec4(m);
+  gl_FragColor = vec4(m, 0.0);
 }
 `;
 
@@ -96,7 +108,8 @@ void main() {
 // grade for the pixels near focus
 const gatherGlsl = /* glsl */ `
 uniform sampler2D tPack; // rgb colour, a = 1 / view distance
-uniform sampler2D tTile; // biggest CoC near here
+uniform sampler2D tTile; // r: biggest CoC near here, g and b: the brightest and the darkest
+uniform float uThrift;   // 1: fewer taps where the surroundings are even (0: all of them, to compare)
 uniform int uTile;
 uniform vec2 uTexel;     // dpr / size: CoC numbers are in CSS px
 uniform vec2 uSpiral[TAPS]; // (cos, sin) of i * golden angle
@@ -106,6 +119,9 @@ uniform float uMaxCoc;   // px
 ${lensGlsl}
 const int MIN_TAPS = 8;
 const float FULL = 48.0; // the look was set with 48 taps: fewer each weigh more
+// (brightest - darkest) / (brightest + darkest) around a pixel: below EVEN it is all one tone, above UNEVEN it is not
+const float EVEN = 0.15;
+const float UNEVEN = 0.4;
 
 // p0: the pack's texel at uv, c0: its CoC, seed: a pixel's own two numbers
 vec3 gather(vec2 uv, vec4 p0, float c0, vec2 seed) {
@@ -118,9 +134,13 @@ vec3 gather(vec2 uv, vec4 p0, float c0, vec2 seed) {
   // so look no further, with as many taps as keeps them as dense as on the full
   // disc. Even in focus a few stay: the full disc's innermost taps soften the
   // picture a little, and it should look the same.
-  float R = min(R0, texelFetch(tTile, ivec2(uv * vec2(textureSize(tPack, 0))) / uTile, 0).r + 1.0);
+  vec3 tile = texelFetch(tTile, ivec2(uv * vec2(textureSize(tPack, 0))) / uTile, 0).rgb;
+  float R = min(R0, tile.r + 1.0);
   float area = (R * R) / (R0 * R0);
-  int taps = clamp(int(ceil(float(TAPS) * area)), MIN_TAPS, TAPS);
+  // Where brightest and darkest nearby are close, a quarter of the taps: what they miss
+  // of the average is well under the grain. Edges, specks and the bird keep them all.
+  float even = 1.0 - smoothstep(EVEN, UNEVEN, (tile.g - tile.b) / (tile.g + tile.b + 0.02));
+  int taps = clamp(int(ceil(float(TAPS) * area * mix(1.0, 0.25, even * uThrift))), MIN_TAPS, TAPS);
   float dense = FULL * area / float(taps);
   // rotate the spiral per pixel so a hot speck blurs to a soft disc, not a ring of dots
   float rot = fract(sin(dot(seed, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
@@ -355,6 +375,7 @@ export function createPost(renderer: THREE.WebGLRenderer, opts: { samples: numbe
     tTile: { value: tileMaxRT.texture },
     uTile,
     uTexel: { value: new THREE.Vector2() },
+    uThrift: { value: 1 },
     uSpiral: { value: Array.from({ length: TAPS }, (_, i) => new THREE.Vector2(Math.cos(i * 2.39996323), Math.sin(i * 2.39996323))) },
     ...lens,
   };

@@ -76,6 +76,26 @@ void main() {
 }
 `;
 
+// Drawn small, shown big. The forest is all soft shapes and costs four noises and 48 discs a
+// pixel: at a quarter of the size each way it looks the same stretched over the picture (the
+// softest disc edge is many of its texels wide, and the lens blurs it again after).
+const SMALL = 4;
+const showFrag = /* glsl */ `
+precision highp float;
+uniform sampler2D tSky;
+uniform vec2 uInv; // 1 / the picture's size, device px
+uniform float uTime;
+float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+void main() {
+  vec3 col = texture2D(tSky, gl_FragCoord.xy * uInv).rgb;
+  // a hair of grain so the gradients don't band (per pixel of the picture, not of the small one)
+  col += (hash(vec3(gl_FragCoord.xy, uTime)) - 0.5) / 255.0;
+  gl_FragColor = vec4(col, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+
 /** mist: 0 = the mountain-gem's sunlit forest gap, 1 = a cloud forest (El Yunque) */
 export function createBackdrop(mist = 0) {
   const rng = mulberry32(7);
@@ -106,5 +126,35 @@ export function createBackdrop(mist = 0) {
   mesh.frustumCulled = false;
   // last among the opaques: it sits on the far plane, so early-z skips what the bird and twig cover
   mesh.renderOrder = 1000;
-  return { mesh, material };
+
+  const small = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false });
+  const shown = new THREE.ShaderMaterial({
+    vertexShader: vert,
+    fragmentShader: showFrag,
+    uniforms: { tSky: { value: small.texture }, uInv: { value: new THREE.Vector2(1, 1) }, uTime: material.uniforms.uTime },
+    side: THREE.BackSide,
+    depthWrite: false,
+  });
+  const size = new THREE.Vector2();
+  return {
+    mesh,
+    material,
+    /**
+     * Before each picture: the forest, small, for this camera. From then on the sphere shows
+     * that, stretched (until then it draws itself in full, as the env map's bake has it).
+     */
+    draw(renderer: THREE.WebGLRenderer, camera: THREE.Camera) {
+      renderer.getDrawingBufferSize(size);
+      const w = Math.ceil(size.x / SMALL);
+      const h = Math.ceil(size.y / SMALL);
+      if (small.width !== w || small.height !== h) small.setSize(w, h);
+      shown.uniforms.uInv.value.set(1 / size.x, 1 / size.y);
+      const prev = renderer.getRenderTarget();
+      mesh.material = material;
+      renderer.setRenderTarget(small);
+      renderer.render(mesh, camera);
+      renderer.setRenderTarget(prev);
+      mesh.material = shown;
+    },
+  };
 }

@@ -438,13 +438,17 @@ function fuzzShells(perch: THREE.Mesh) {
         .replace(
           '#include <alphatest_fragment>',
           `{
+             // moss where the baked bark is green: cushions, taller, denser
+             float green = smoothstep(0.004, 0.03, diffuseColor.g - max(diffuseColor.r, diffuseColor.b) * 0.9);
+             // No strand is taller than this (bare bark's reach 0.4 of the height, a cushion's all of
+             // it: see tall, below), so a shell above it has nothing here: gone before the noise
+             // is worked out, which is most of what a shell costs.
+             if (uH >= mix(0.4, 1.05, green)) discard;
              // strands wander as they rise, so each one curls
              vec3 q = vFP * 520.0;
              q += vec3(fn(vFP * 90.0), fn(vFP * 90.0 + 7.3), fn(vFP * 90.0 + 3.1)) * 3.0 * uH;
              vec3 c = floor(q);
              vec3 f = fract(q) - 0.5;
-             // moss where the baked bark is green: cushions, taller, denser
-             float green = smoothstep(0.004, 0.03, diffuseColor.g - max(diffuseColor.r, diffuseColor.b) * 0.9);
              float r = mix(0.42, 0.12, uH) * mix(1.0, 0.8, green);
              float strand = 1.0 - smoothstep(r * 0.6, r, length(f.xz + f.y * 0.3));
              float a = 0.0;
